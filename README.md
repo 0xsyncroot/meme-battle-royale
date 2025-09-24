@@ -13,6 +13,15 @@ This DApp demonstrates cutting-edge **confidential smart contracts** where:
 - **🏆 Oracle decryption** reveals results only after battle completion
 - **🔄 Automatic progression** - new battles start immediately after completion
 
+### 🚀 Live Deployment
+
+**Contract Address (Sepolia):** [`0x46d1b172B48f9870E4aB24C146B303e180Cb1504`](https://sepolia.etherscan.io/address/0x46d1b172b48f9870e4ab24c146b303e180cb1504)
+
+- **✅ Verified Source Code** - Full transparency with open-source verification
+- **🔐 FHEVM Compatible** - Privacy-preserving encryption on Ethereum Sepolia
+- **⚡ Production Ready** - Battle-tested smart contract architecture
+- **🛡️ Enterprise Grade** - Modular design with comprehensive testing
+
 ## 🏗️ Project Architecture
 
 ```
@@ -194,7 +203,7 @@ npm run deploy:sepolia
 🎭 Deploying EncryptedMemeBattle v3.0.0 by 0xSyncroot
 ════════════════════════════════════════════════════════════════
 📍 Network: sepolia (Chain ID: 11155111)
-👤 Deployer: 0x123...abc
+👤 Deployer: 0x3840...Ee5
 💰 Balance: 0.05 ETH
 ✅ FHEVM-compatible network detected: sepolia
 
@@ -202,12 +211,14 @@ npm run deploy:sepolia
 📊 Template Count: 5
 💬 Caption Count: 100
 ⏰ Battle Duration: 300 seconds (5 minutes)
-🤖 Battle Operator: 0x123...abc
+🤖 Battle Operator: 0x3840...Ee5
 
 🚀 Deploying EncryptedMemeBattle...
-✅ EncryptedMemeBattle deployed at: 0x25B6524832E9Cf63D968b305205f1f49e4802f56
+✅ EncryptedMemeBattle deployed at: 0x46d1b172B48f9870E4aB24C146B303e180Cb1504
 🎉 Deployment successful!
 ```
+
+**🔗 Live Contract:** [View on Etherscan](https://sepolia.etherscan.io/address/0x46d1b172b48f9870e4ab24c146b303e180cb1504)
 
 #### Option B: Local Development
 
@@ -224,9 +235,11 @@ npm run deploy:localhost
 
 After successful deployment, update `frontend/.env.local`:
 ```env
-# Replace with your actual deployed contract address
-NEXT_PUBLIC_CONTRACT_ADDRESS=0x25B6524832E9Cf63D968b305205f1f49e4802f56
+# Use the live deployed contract address or deploy your own
+NEXT_PUBLIC_CONTRACT_ADDRESS=0x46d1b172B48f9870E4aB24C146B303e180Cb1504
 ```
+
+**Note:** You can use the live deployed contract above for testing, or deploy your own instance following the deployment steps.
 
 ### 7. Start the DApp
 
