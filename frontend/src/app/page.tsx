@@ -138,10 +138,33 @@ export default function HomePage() {
 
   if (!ready) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-indigo-600 mx-auto mb-3"></div>
-          <p className="text-sm text-gray-600">Loading Meme Battle Royale...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50">
+        <div className="text-center space-y-6">
+          {/* Logo/Brand shimmer */}
+          <div className="space-y-4">
+            <div className="shimmer h-12 w-64 rounded-xl mx-auto"></div>
+            <div className="shimmer h-4 w-48 rounded-lg mx-auto"></div>
+          </div>
+          
+          {/* Feature cards shimmer */}
+          <div className="grid md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="shimmer h-32 w-64 rounded-2xl mx-auto"></div>
+            ))}
+          </div>
+          
+          {/* Connect button shimmer */}
+          <div className="space-y-3">
+            <div className="shimmer h-12 w-48 rounded-xl mx-auto"></div>
+            <div className="shimmer h-4 w-72 rounded-lg mx-auto"></div>
+          </div>
+          
+          {/* Loading indicator */}
+          <div className="flex items-center justify-center gap-2 mt-8">
+            <div className="h-2 w-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="h-2 w-2 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
+          </div>
         </div>
       </div>
     );

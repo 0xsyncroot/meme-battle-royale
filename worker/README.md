@@ -18,9 +18,38 @@ CRON_SCHEDULE=*/30 * * * * *     # Optional, defaults to every 30 seconds
 ```
 
 ### 2. Install and Run
+
+#### Local Installation
 ```bash
 npm install
 npm start
+```
+
+#### Docker Deployment (Recommended)
+```bash
+# Quick deploy with Docker Compose
+./deploy.sh
+
+# Or manually:
+docker-compose up -d --build
+```
+
+#### Build Options
+```bash
+# Build Docker image only
+./deploy.sh build
+
+# Deploy and show logs
+./deploy.sh deploy
+
+# Show logs
+./deploy.sh logs
+
+# Stop worker
+./deploy.sh stop
+
+# Clean up
+./deploy.sh clean
 ```
 
 ## ⚙️ How It Works
@@ -61,6 +90,28 @@ Worker wallet needs ETH for gas fees to call `endBattle()`.
 
 ### "could not detect network"
 Check your `RPC_URL` is correct and accessible.
+
+### Docker Issues
+```bash
+# Check container status
+./deploy.sh status
+
+# View detailed logs
+./deploy.sh logs
+
+# Restart if stuck
+./deploy.sh restart
+
+# Complete cleanup and rebuild
+./deploy.sh clean
+./deploy.sh deploy
+```
+
+### Environment Variables
+Make sure your `.env` file has correct values:
+- `CONTRACT_ADDRESS` - Your deployed contract address
+- `PRIVATE_KEY` - Battle operator wallet private key (with 0x prefix)
+- `RPC_URL` - Working RPC endpoint for your network
 
 ## 📊 Output Example
 ```
