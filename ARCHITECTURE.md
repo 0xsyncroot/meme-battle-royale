@@ -20,7 +20,8 @@ meme-battle-royale/
 │   │   │   └── FHEVMHelper.sol                 # 🔧 FHEVM utilities (199 lines)
 │   │   └── 📁 interfaces/
 │   │       ├── IBattleEvents.sol               # 📢 Event definitions (50+ lines)
-│   │       └── IBattleErrors.sol               # ❌ Custom errors (30+ lines)
+│   │       ├── IBattleErrors.sol               # ❌ Custom errors (30+ lines)
+│   │       └── IDecryptionCallbacks.sol        # 🔐 FHEVM callback interfaces (34 lines)
 │   ├── 📁 scripts/
 │   │   ├── deployEncryptedMemeBattle.js        # 🚀 Production deployment
 │   │   ├── checkBattleState.js                 # 📊 State monitoring
@@ -97,13 +98,13 @@ meme-battle-royale/
 └── 📦 package.json                  # Root project configuration
 ```
 
-**Total: 1,481+ lines of smart contract code across 7 modular files**
+**Total: 1,515+ lines of smart contract code across 8 modular files**
 
 ## 🏛️ Smart Contract Architecture (v3.0.0)
 
 ### Enterprise Modular Design by 0xSyncroot
 
-The smart contract system uses a **separation of concerns** approach with 7 specialized components:
+The smart contract system uses a **separation of concerns** approach with 8 specialized components:
 
 | Component | Lines | Purpose | Key Features |
 |-----------|-------|---------|-------------|
@@ -114,6 +115,7 @@ The smart contract system uses a **separation of concerns** approach with 7 spec
 | **BattleStructs.sol** | 146 | Data modeling | Type-safe structures |
 | **IBattleEvents.sol** | 50+ | Event definitions | Centralized event management |
 | **IBattleErrors.sol** | 30+ | Error handling | Gas-efficient custom errors |
+| **IDecryptionCallbacks.sol** | 34 | Callback interfaces | FHEVM oracle callback definitions |
 
 ### 1. EncryptedMemeBattle.sol (Main Contract)
 
@@ -161,7 +163,37 @@ function captionDecryptionCallback(uint256 requestId, uint8 captionId);
 - **Encrypted Data**: Vote mappings, caption storage
 - **Results**: Decrypted results, battle history
 
-### 4. FHEVM Integration Details
+### 4. IDecryptionCallbacks.sol (Interface Design)
+
+**🔐 Professional Interface Architecture:**
+- Separates FHEVM oracle callback definitions from implementation
+- Provides type-safe callback function signatures
+- Enables clean contract inheritance and implementation
+
+**Interface Functions:**
+```solidity
+interface IDecryptionCallbacks {
+    function templateDecryptionCallback(
+        uint256 requestId,
+        bytes memory cleartexts,
+        bytes memory decryptionProof
+    ) external;
+
+    function captionDecryptionCallback(
+        uint256 requestId,
+        bytes memory cleartexts,
+        bytes memory decryptionProof
+    ) external;
+}
+```
+
+**Architecture Benefits:**
+- **Interface Segregation**: Clear separation of callback concerns
+- **Implementation Flexibility**: Contracts can implement as needed
+- **Type Safety**: Compiler-enforced function signatures
+- **Maintainability**: Changes to interface don't affect unrelated code
+
+### 5. FHEVM Integration Details
 
 **Encryption Types Used:**
 ```solidity
@@ -429,8 +461,10 @@ SEPOLIA_CHAIN_ID=11155111
 ZAMA_DEVNET_RPC_URL=https://devnet.zama.ai
 ZAMA_DEVNET_CHAIN_ID=8009
 
-# Deployment
+# Deployment & Verification
 PRIVATE_KEY=your_private_key_without_0x_prefix
+BATTLE_OPERATOR=0x_operator_address_for_automation
+ETHERSCAN_API_KEY=your_etherscan_api_key_for_verification
 ```
 
 #### Frontend Configuration (`frontend/.env.local`)
@@ -445,6 +479,63 @@ NEXT_PUBLIC_CONTRACT_ADDRESS=0x25B6524832E9Cf63D968b305205f1f49e4802f56
 NEXT_PUBLIC_SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_PROJECT_ID
 NEXT_PUBLIC_ZAMA_DEVNET_RPC_URL=https://devnet.zama.ai
 ```
+
+## 🚀 Deployment & Contract Verification
+
+### Smart Contract Deployment
+
+#### Deploy to Networks
+```bash
+# Local Hardhat network
+npm run deploy
+
+# Zama Devnet (Full FHEVM support)
+npm run deploy:zama
+
+# Ethereum Sepolia (FHEVM with testnet)
+npm run deploy:sepolia
+```
+
+### Contract Verification on Sepolia
+
+#### Automated Verification
+```bash
+# Set deployed contract address
+export CONTRACT_ADDRESS=0xYOUR_DEPLOYED_ADDRESS
+
+# Run verification script
+npx hardhat run scripts/verifyContract.js --network sepolia
+```
+
+#### Manual Verification
+```bash
+# Direct Hardhat verification
+npx hardhat verify --network sepolia \
+  0xCONTRACT_ADDRESS \
+  5 \
+  100 \
+  300 \
+  0xBATTLE_OPERATOR_ADDRESS
+```
+
+#### Etherscan Web Verification
+1. Visit https://sepolia.etherscan.io/
+2. Navigate to your contract address
+3. Click "Contract" → "Verify and Publish"
+4. Use compiler version: **v0.8.24+commit.e11b9ed9**
+5. Upload flattened source: `npx hardhat flatten contracts/EncryptedMemeBattle.sol`
+
+### Verification Requirements
+- **Etherscan API Key**: Required for automated verification
+- **Constructor Parameters**: Must match deployment exactly
+- **Compiler Settings**: Optimizer enabled, 200 runs
+- **Network**: Contract must be deployed on target network
+
+### Troubleshooting Verification
+- **Already Verified**: Contract verification successful
+- **Parameter Mismatch**: Check constructor arguments
+- **Compiler Version**: Ensure exact version match (0.8.24)
+- **Network Issues**: Verify deployment network matches
 
 ## 🧪 Testing Strategy
 
@@ -498,6 +589,33 @@ event ResultsDecrypted(uint256 indexed battleNumber, uint32[] templateVotes);
 - **SDK Improvements**: Enhanced TypeScript definitions
 - **Testing Framework**: Comprehensive FHEVM test utilities
 - **Documentation**: Interactive tutorials and examples
+
+## 📋 Interface Definitions
+
+### IDecryptionCallbacks.sol
+**🔐 FHEVM Oracle Callback Interfaces:**
+- `templateDecryptionCallback()` - Handles template vote decryption results
+- `captionDecryptionCallback()` - Processes caption selection decryption
+
+**Architecture Benefits:**
+- Professional interface-based design pattern
+- Clear contract separation between oracle integration and business logic
+- Type-safe callback function signatures
+- Enhanced maintainability and testability
+
+### IBattleEvents.sol  
+**📢 Event Management:**
+- `VoteSubmitted` - User vote confirmation
+- `BattleEnded` / `BattleStarted` - Lifecycle events
+- `DecryptionRequested` - Oracle interaction tracking
+- `TemplateResultsRevealed` / `CombinationResultsRevealed` - Result events
+
+### IBattleErrors.sol
+**❌ Error Handling:**
+- `BattleNotActive` / `BattleStillActive` - Timing errors
+- `InvalidTemplateId` / `InvalidCaptionId` - Validation errors
+- `AlreadyVoted` - Anti-double-voting protection
+- `NotAuthorized` / `OnlyOwner` - Access control errors
 
 ---
 

@@ -40,4 +40,10 @@ module.exports = {
         cache: "./cache",
         artifacts: "./artifacts",
     },
+    etherscan: {
+        apiKey: {
+            sepolia: process.env.ETHERSCAN_API_KEY || "",
+            // Note: Zama Devnet uses custom explorer, no API key needed
+        }
+    },
 };

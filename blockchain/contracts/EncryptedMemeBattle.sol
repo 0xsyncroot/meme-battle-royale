@@ -5,6 +5,7 @@ import "@fhevm/solidity/lib/FHE.sol";
 import {SepoliaConfig} from "@fhevm/solidity/config/ZamaConfig.sol";
 import "./core/BattleCore.sol";
 import "./libraries/BattleStructs.sol";
+import "./interfaces/IDecryptionCallbacks.sol";
 
 /**
  * 
@@ -99,7 +100,7 @@ import "./libraries/BattleStructs.sol";
  * @custom:architecture Modular design with separated concerns for enterprise-grade applications
  * @custom:copyright © 2024 0xSyncroot & Zama Meme Battle Team. All rights reserved.
  */
-contract EncryptedMemeBattle is BattleCore, SepoliaConfig {
+contract EncryptedMemeBattle is BattleCore, SepoliaConfig, IDecryptionCallbacks {
     using FHE for euint32;
     using FHE for euint16;
     using FHE for euint8;
@@ -179,106 +180,91 @@ contract EncryptedMemeBattle is BattleCore, SepoliaConfig {
     // ============ DECRYPTION CALLBACKS ============
     
     /**
-     * @notice FHEVM oracle callback for template vote count decryption results
-     * @dev Called asynchronously by Zama's oracle network after template vote decryption.
-     *      Processes results to determine winner and triggers caption selection.
-     * 
-     * @param requestId Unique identifier matching the original decryption request
-     * @param cleartexts Raw decrypted data (concatenated 32-byte values for euint32 results)
-     * @param decryptionProof Cryptographic signature proving decryption authenticity
+     * @notice FHEVM oracle callback for template vote decryption
+     * @param requestId Request identifier for replay protection
+     * @param cleartexts ABI-encoded decrypted template vote counts
+     * @param decryptionProof KMS signature for verification
      */
     function templateDecryptionCallback(
         uint256 requestId,
         bytes memory cleartexts,
         bytes memory decryptionProof
-    ) external {
-        // ═══ STEP 1: Cryptographic Verification ═══
+    ) external override(IDecryptionCallbacks) {
+        // Verify request validity and prevent replay attacks
+        require(requestIdToBattleNumber[requestId] > 0, "Invalid request ID");
         FHE.checkSignatures(requestId, cleartexts, decryptionProof);
         
-        // ═══ STEP 2: Battle Context Resolution ═══ 
         uint256 targetBattleNumber = requestIdToBattleNumber[requestId];
-        require(targetBattleNumber > 0, "Invalid decryption request");
         
-        // ═══ STEP 3: Parse FHEVM Decryption Results ═══
-        uint32[] memory voteCounts = new uint32[](templateCount);
+        // Decode template vote counts from ABI-encoded cleartexts
+        uint32[] memory voteCounts = abi.decode(cleartexts, (uint32[]));
+        require(voteCounts.length == templateCount, "Invalid vote count array");
+        
+        // Determine winning template
         uint8 winner = 0;
         uint32 maxVotes = 0;
         
         for (uint8 i = 0; i < templateCount; i++) {
-            bytes32 resultBytes;
-            assembly {
-                resultBytes := mload(add(add(cleartexts, 0x20), mul(i, 0x20)))
-            }
-            
-            uint32 voteCount = uint32(uint256(resultBytes));
-            voteCounts[i] = voteCount;
-            
-            if (voteCount > maxVotes) {
-                maxVotes = voteCount;
+            if (voteCounts[i] > maxVotes) {
+                maxVotes = voteCounts[i];
                 winner = i;
             }
         }
         
-        // ═══ STEP 4: Update Battle Results ═══
+        // Update current battle results
         currentBattleResults.templateVoteCounts = voteCounts;
         currentBattleResults.winnerTemplateId = winner;
         currentBattleResults.winnerVotes = maxVotes;
         currentBattleResults.battleNumber = targetBattleNumber;
         currentBattleResults.totalParticipants = totalVoters;
         
-        // Update battle history if exists
+        // Update historical battle record
         if (battleHistory[targetBattleNumber].endTimestamp > 0) {
             battleHistory[targetBattleNumber].templateVoteCounts = voteCounts;
             battleHistory[targetBattleNumber].winnerTemplateId = winner;
             battleHistory[targetBattleNumber].winnerVotes = maxVotes;
         }
         
-        // ═══ STEP 5: Trigger Caption Selection ═══
+        // Request caption decryption for winner
         _selectRandomCaptionFromTemplate(winner, targetBattleNumber);
         
-        // Cleanup
+        // Prevent replay attacks
         delete requestIdToBattleNumber[requestId];
+        delete decryptionRequests[requestId];
         
         emit TemplateResultsRevealed(winner, voteCounts);
     }
     
     /**
-     * @notice FHEVM oracle callback for selected caption decryption
-     * @dev Called asynchronously by Zama's oracle after caption selection decryption.
-     *      Finalizes battle results and updates historical records.
-     * 
-     * @param requestId Unique identifier matching the caption decryption request
-     * @param cleartexts Raw decrypted caption ID data
-     * @param decryptionProof Cryptographic signature proving decryption authenticity
+     * @notice FHEVM oracle callback for caption decryption
+     * @param requestId Request identifier for replay protection
+     * @param cleartexts ABI-encoded decrypted caption ID
+     * @param decryptionProof KMS signature for verification
      */
     function captionDecryptionCallback(
         uint256 requestId,
         bytes memory cleartexts,
         bytes memory decryptionProof
-    ) external {
-        // Cryptographic verification
+    ) external override(IDecryptionCallbacks) {
+        // Verify request validity and prevent replay attacks
+        require(requestIdToBattleNumber[requestId] > 0, "Invalid request ID");
         FHE.checkSignatures(requestId, cleartexts, decryptionProof);
         
-        // Get battle context
         uint256 targetBattleNumber = requestIdToBattleNumber[requestId];
-        require(targetBattleNumber > 0, "Invalid decryption request");
         
-        // Parse decrypted caption ID
-        bytes32 resultBytes;
-        assembly {
-            resultBytes := mload(add(cleartexts, 0x20))
-        }
-        uint16 captionId = uint16(uint256(resultBytes));
+        // Decode caption ID from ABI-encoded cleartexts
+        uint16 captionId = abi.decode(cleartexts, (uint16));
         
-        // Finalize results
+        // Finalize battle results
         currentBattleResults.winnerCaptionId = captionId;
         currentBattleResults.revealed = true;
         
-        // Update battle history
+        // Update historical battle record
         _updateBattleHistoryWithResults(targetBattleNumber, captionId);
         
-        // Cleanup
+        // Prevent replay attacks
         delete requestIdToBattleNumber[requestId];
+        delete decryptionRequests[requestId];
         
         emit CombinationResultsRevealed(
             currentBattleResults.winnerTemplateId, 
@@ -324,11 +310,10 @@ contract EncryptedMemeBattle is BattleCore, SepoliaConfig {
         bytes32[] memory handles = new bytes32[](1);
         handles[0] = euint16.unwrap(selectedCaption);
         
-        uint256 requestId = nextRequestId++;
+        uint256 requestId = FHE.requestDecryption(handles, IDecryptionCallbacks.captionDecryptionCallback.selector);
+        
         requestIdToBattleNumber[requestId] = targetBattleNumber;
         decryptionRequests[requestId] = handles;
-        
-        FHE.requestDecryption(handles, this.captionDecryptionCallback.selector);
         emit DecryptionRequested(requestId, "selected_caption");
     }
     

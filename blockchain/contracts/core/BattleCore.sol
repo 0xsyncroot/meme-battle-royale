@@ -7,6 +7,7 @@ import "../libraries/FHEVMHelper.sol";
 import "../libraries/BattleStructs.sol";
 import "../interfaces/IBattleEvents.sol";
 import "../interfaces/IBattleErrors.sol";
+import "../interfaces/IDecryptionCallbacks.sol";
 
 /**
  * @title BattleCore
@@ -48,7 +49,7 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
      * 
      * Effects:
      * - Sets battleActive = true and calculates new battleEndsAt
-     * - Resets totalVoters and nextRequestId counters  
+     * - Resets totalVoters counter
      * - Clears previousBattleResults for new battle
      * - Emits BattleStarted event with battle details
      */
@@ -56,7 +57,6 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
         battleActive = true;
         battleEndsAt = block.timestamp + battleDuration;
         totalVoters = 0;
-        nextRequestId = 1;
         
         // Clear previous battle results - new battle starts clean
         delete currentBattleResults;
@@ -99,14 +99,10 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
         
         battleActive = false;
         
-        // ✅ SAVE BATTLE TO HISTORY IMMEDIATELY - guarantees history entry exists
-        // This works in all environments (mainnet, testnet, local development)
+        // Save battle to history immediately
         _saveBattleToHistory();
         
-        // ⚡ REQUEST FHEVM DECRYPTION - will update results if oracle responds
-        // - Zama Mainnet: Usually works, results updated via callbacks
-        // - Testnets: May not work, but basic history already saved above
-        // - Local: No oracle available, basic history is sufficient for development
+        // Request FHEVM decryption to determine winner
         _requestTemplateResultsDecryption();
         
         emit BattleEnded(block.timestamp, battleNumber);
@@ -151,7 +147,7 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
         externalEuint16 encryptedCaptionId,
         bytes calldata captionProof
     ) external {
-        // ═══ STEP 1: Battle State Validation ═══
+        // Battle state validation
         if (!battleActive || block.timestamp >= battleEndsAt) {
             revert BattleNotActive();
         }
@@ -159,39 +155,30 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
             revert AlreadyVoted();
         }
         
-        // ═══ STEP 2: Convert External Encrypted Inputs ═══
+        // Convert external encrypted inputs
         euint8 templateId = FHEVMHelper.convertExternalTemplate(encryptedTemplateId, templateProof);
         euint16 captionId = FHEVMHelper.convertExternalCaption(encryptedCaptionId, captionProof);
         
-        // ═══ STEP 3: Configure FHEVM Access Control List ═══
+        // Configure FHEVM access control
         FHEVMHelper.setupVoteACL(templateId, captionId, msg.sender);
         
-        // ═══ STEP 4: Privacy-Preserving Input Validation ═══
+        // Validate template choice homomorphically
         ebool validTemplate = FHEVMHelper.validateTemplateChoice(templateId, templateCount);
         
-        // ═══ STEP 5: Privacy-Preserving Vote Tallying ═══
+        // Process encrypted vote tallying
         for (uint8 i = 0; i < templateCount; i++) {
-            // Get current encrypted vote count (lazy initialization)
             euint32 currentCount = _getOrInitializeTemplateVotes(i);
-            
-            // Check if user's template choice matches current index
             ebool isThisTemplate = FHEVMHelper.isTemplateMatch(templateId, i);
-            
-            // Combine validation with template matching
             ebool validAndMatching = FHEVMHelper.combineConditions(validTemplate, isThisTemplate);
-            
-            // Convert condition to increment value (0 or 1)
             euint32 increment = FHEVMHelper.conditionalIncrement(validAndMatching);
             
-            // Update vote count (only matching template gets +1, others get +0)
             encryptedTemplateVotes[i] = FHE.add(currentCount, increment);
             FHEVMHelper.allowContractAccess(encryptedTemplateVotes[i]);
             
-            // Store caption for winner selection (preserves privacy by storing for all templates)
             _storeCaptionForTemplate(i, captionId);
         }
         
-        // ═══ STEP 6: Update User Voting Status ═══
+        // Update user voting status
         lastVotedBattle[msg.sender] = battleNumber;
         totalVoters++;
         
@@ -252,53 +239,32 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
     // ============ DECRYPTION REQUEST MANAGEMENT ============
     
     /**
-     * @notice Internal function to request template results decryption
-     * @dev Used by both automatic battle ending and manual decryption requests.
-     *      Submits batch decryption request to FHEVM oracle for all template vote counts.
-     * 
-     * @return requestId Unique identifier for tracking this decryption request
-     * 
-     * Process:
-     * - Collects encrypted handles for all template vote counts
-     * - Stores battleNumber context for callback processing
-     * - Submits batch request to FHEVM oracle network
-     * - Returns requestId for external tracking (optional)
-     * 
-     * Callback Chain:
-     * 1. templateDecryptionCallback() processes vote counts, determines winner
-     * 2. _selectRandomCaptionFromTemplate() selects random caption from winner
-     * 3. captionDecryptionCallback() finalizes results and updates history
+     * @notice Request decryption of template vote counts from FHEVM oracle
+     * @dev Submits batch decryption request for all template vote counts.
+     *      Oracle calls templateDecryptionCallback with results.
      */
-    function _requestTemplateResultsDecryption() internal returns (uint256 requestId) {
-        // No votes case - battle history already saved, emit event and return
+    function _requestTemplateResultsDecryption() internal {
         if (totalVoters == 0) {
             emit TemplateResultsRevealed(0, new uint32[](templateCount));
-            return 0;
+            return;
         }
         
-        requestId = nextRequestId++;
         bytes32[] memory handles = new bytes32[](templateCount);
         
-        // ✅ CRITICAL: Store battleNumber for this decryption request
-        requestIdToBattleNumber[requestId] = battleNumber;
-        
-        // Collect encrypted vote handles for batch decryption
         for (uint8 i = 0; i < templateCount; i++) {
             euint32 voteCount = _getOrInitializeTemplateVotes(i);
             handles[i] = euint32.unwrap(voteCount);
         }
         
-        // Store handles for callback verification (security measure)
-        decryptionRequests[requestId] = handles;
-        
-        // Submit decryption request to FHEVM oracle network
-        // Note: Callback selector will be provided by the main contract
-        FHE.requestDecryption(
+        uint256 requestId = FHE.requestDecryption(
             handles,
-            bytes4(keccak256("templateDecryptionCallback(uint256,bytes,bytes)"))
+            IDecryptionCallbacks.templateDecryptionCallback.selector
         );
         
+        // Store battle context for callback processing
+        requestIdToBattleNumber[requestId] = battleNumber;
+        decryptionRequests[requestId] = handles;
+        
         emit DecryptionRequested(requestId, "template_votes");
-        return requestId;
     }
 }

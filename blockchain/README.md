@@ -56,6 +56,18 @@ npm run deploy:zama
 npm run deploy:sepolia
 ```
 
+### Verify Contract (Sepolia)
+```bash
+# Set your deployed contract address
+export CONTRACT_ADDRESS=0xYOUR_DEPLOYED_ADDRESS
+
+# Verify on Etherscan
+npx hardhat run scripts/verifyContract.js --network sepolia
+
+# Or use direct command
+npm run verify 0xYOUR_CONTRACT_ADDRESS 5 100 300 0xBATTLE_OPERATOR_ADDRESS
+```
+
 ## 🏗️ Architecture Overview
 
 ### Modular Design
@@ -64,7 +76,8 @@ contracts/
 ├── EncryptedMemeBattle.sol          # 🎯 Main contract (481 lines)
 ├── interfaces/
 │   ├── IBattleEvents.sol            # 📢 Event definitions
-│   └── IBattleErrors.sol            # ❌ Custom errors
+│   ├── IBattleErrors.sol            # ❌ Custom errors
+│   └── IDecryptionCallbacks.sol     # 🔐 FHEVM callback interfaces
 ├── libraries/
 │   ├── BattleStructs.sol            # 📊 Data structures
 │   └── FHEVMHelper.sol              # 🔧 FHEVM utilities
@@ -103,6 +116,11 @@ contracts/
 - Battle result structures
 - Configuration structures
 - View function return types
+
+#### 🔐 **IDecryptionCallbacks.sol** - FHEVM Interfaces
+- Oracle callback function definitions
+- Type-safe callback signatures
+- Professional interface-based architecture
 
 ## 🔐 Privacy Features
 
@@ -237,6 +255,9 @@ BATTLE_OPERATOR=operator_address
 ZAMA_DEVNET_RPC_URL=https://devnet.zama.ai
 SEPOLIA_RPC_URL=your_sepolia_endpoint
 
+# Contract verification
+ETHERSCAN_API_KEY=your_etherscan_api_key
+
 # Contract interaction
 CONTRACT_ADDRESS=deployed_contract_address
 ```
@@ -246,7 +267,7 @@ CONTRACT_ADDRESS=deployed_contract_address
 | Metric | Value |
 |--------|-------|
 | **Main Contract** | 481 lines |
-| **Total Architecture** | 7 files, ~1481 lines |
+| **Total Architecture** | 8 files, ~1515 lines |
 | **Gas Optimization** | 72% reduction vs monolithic |
 | **Test Coverage** | 24/24 tests passing |
 | **FHEVM Compatibility** | v0.8+ |
@@ -255,11 +276,12 @@ CONTRACT_ADDRESS=deployed_contract_address
 
 ### vs Monolithic Design
 - **🔥 56% smaller** main contract (1086 → 481 lines)
-- **📦 Better organization** - separated concerns across modules
+- **📦 Better organization** - separated concerns across 8 modules
 - **🧪 Easier testing** - individual module testing  
 - **🔧 Better maintainability** - isolated changes
 - **♻️ Code reusability** - shared FHEVM utilities
 - **👥 Team collaboration** - parallel development
+- **🔐 Professional interfaces** - enterprise callback patterns
 
 ### Enterprise Features
 - **📚 Professional documentation** - NatSpec standards

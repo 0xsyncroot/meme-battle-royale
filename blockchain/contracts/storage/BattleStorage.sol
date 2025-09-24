@@ -56,9 +56,6 @@ abstract contract BattleStorage {
     /// @notice Count of unique voters in current battle
     uint256 public totalVoters;
     
-    /// @notice Incremental ID for FHEVM decryption requests
-    uint256 internal nextRequestId;
-    
     /// @notice Current battle number (starts from 1)
     uint256 public battleNumber;
     
