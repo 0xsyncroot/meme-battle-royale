@@ -131,7 +131,6 @@ export function useFHEVM(): UseFHEVMReturn {
 
   /**
    * Gets current network chain ID from wallet
-   * Validates wallet connection and retrieves network information
    * 
    * @returns Promise resolving to current chain ID
    * @throws {FHEVMError} When wallet is not connected
@@ -152,8 +151,70 @@ export function useFHEVM(): UseFHEVMReturn {
   }, [wallets]);
 
   /**
-   * Initializes FHEVM with network validation
-   * Handles complete initialization flow with proper error handling
+   * Attempts to switch user's wallet to Sepolia testnet
+   * Handles both network switching and network addition if needed
+   * 
+   * @returns Promise<boolean> - True if switch successful, false otherwise
+   */
+  const switchToSepolia = useCallback(async (): Promise<boolean> => {
+    if (!wallets.length) {
+      return false;
+    }
+
+    try {
+      const wallet = wallets[0];
+      const provider = await wallet.getEthereumProvider();
+      const SEPOLIA_CHAIN_HEX = `0x${DEFAULT_NETWORK.chainId.toString(16)}`;
+
+      // First, attempt to switch to existing Sepolia network
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: SEPOLIA_CHAIN_HEX }],
+        });
+        
+        return true;
+        
+      } catch (switchError: any) {
+        // Error code 4902 means the chain has not been added to wallet
+        if (switchError.code === 4902) {
+          // Add Sepolia network to wallet
+          await provider.request({
+            method: 'wallet_addEthereumChain',
+            params: [
+              {
+                chainId: SEPOLIA_CHAIN_HEX,
+                chainName: DEFAULT_NETWORK.name,
+                nativeCurrency: {
+                  name: 'Sepolia ETH',
+                  symbol: 'SepoliaETH',
+                  decimals: 18,
+                },
+                rpcUrls: [DEFAULT_NETWORK.rpcUrl, 'https://rpc.sepolia.org'],
+                blockExplorerUrls: ['https://sepolia.etherscan.io'],
+              },
+            ],
+          });
+          
+          return true;
+          
+        } else if (switchError.code === 4001) {
+          // User rejected the request
+          return false;
+        } else {
+          throw switchError;
+        }
+      }
+      
+    } catch (error) {
+      console.error('Network switch failed:', error);
+      return false;
+    }
+  }, [wallets]);
+
+  /**
+   * Initializes FHEVM with automatic network switching
+   * Attempts to switch to Sepolia if on wrong network, then initializes FHEVM
    */
   const initializeFHEVMWithValidation = useCallback(async () => {
     if (!ready || !authenticated || !wallets.length) {
@@ -166,24 +227,50 @@ export function useFHEVM(): UseFHEVMReturn {
       // Get current network information
       const chainId = await getCurrentChainId();
       const networkName = getNetworkName(chainId);
-      
       updateState({ currentNetwork: networkName });
       
-      // Validate network support - only Sepolia for this DApp
+      // Auto-switch to Sepolia if on wrong network
       if (chainId !== DEFAULT_NETWORK.chainId) {
-        throw new FHEVMError(
-          FHEVMErrorType.NETWORK_UNSUPPORTED,
-          `This DApp only works on ${DEFAULT_NETWORK.name}. Current network: ${networkName} (Chain ID: ${chainId}). Please switch to ${DEFAULT_NETWORK.name}.`
-        );
+        updateState({ 
+          loading: true, 
+          error: null,
+          currentNetwork: `Switching from ${networkName} to ${DEFAULT_NETWORK.name}...`
+        });
+        
+        const switchSuccess = await switchToSepolia();
+        
+        if (!switchSuccess) {
+          throw new FHEVMError(
+            FHEVMErrorType.NETWORK_UNSUPPORTED,
+            `Failed to switch to ${DEFAULT_NETWORK.name}. Please manually switch to ${DEFAULT_NETWORK.name} network.`
+          );
+        }
+        
+        // Wait for network switch to complete
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Update network info after switch
+        const newChainId = await getCurrentChainId();
+        const newNetworkName = getNetworkName(newChainId);
+        updateState({ currentNetwork: newNetworkName });
+        
+        // Verify switch was successful
+        if (newChainId !== DEFAULT_NETWORK.chainId) {
+          throw new FHEVMError(
+            FHEVMErrorType.NETWORK_UNSUPPORTED,
+            `Network switch failed. Expected ${DEFAULT_NETWORK.name}, got ${newNetworkName}.`
+          );
+        }
       }
       
-      // Initialize FHEVM for the supported network
-      await initializeFHEVM(chainId);
+      // Initialize FHEVM for Sepolia network
+      await initializeFHEVM(DEFAULT_NETWORK.chainId);
       
       updateState({ 
         initialized: true, 
         loading: false,
-        error: null 
+        error: null,
+        currentNetwork: DEFAULT_NETWORK.name
       });
       
     } catch (error) {
@@ -197,7 +284,7 @@ export function useFHEVM(): UseFHEVMReturn {
         error: errorMessage 
       });
     }
-  }, [ready, authenticated, wallets, updateState, getCurrentChainId]);
+  }, [ready, authenticated, wallets, updateState, getCurrentChainId, switchToSepolia]);
 
   /**
    * Effect for automatic FHEVM initialization
@@ -234,8 +321,7 @@ export function useFHEVM(): UseFHEVMReturn {
     }
 
     try {
-      // Use direct encryption since FHEVM instance cannot be shared with worker
-      // Worker context has separate memory space and cannot access main thread's fhevmInstance
+      // Direct encryption approach for FHEVM operations
       const userAddress = await getUserAddress();
       const params = createEncryptionParams(contractAddress, userAddress);
       
@@ -276,8 +362,7 @@ export function useFHEVM(): UseFHEVMReturn {
     }
 
     try {
-      // Use direct encryption since FHEVM instance cannot be shared with worker
-      // Worker context has separate memory space and cannot access main thread's fhevmInstance
+      // Direct encryption approach for FHEVM operations
       const userAddress = await getUserAddress();
       const params = createEncryptionParams(contractAddress, userAddress);
       

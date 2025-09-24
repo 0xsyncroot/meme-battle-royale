@@ -21,8 +21,13 @@ const nextConfig: NextConfig = {
         buffer: false,
       };
     }
-    
+
     return config;
+  },
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false,
   },
   // Ensure proper handling of ES modules
   experimental: {

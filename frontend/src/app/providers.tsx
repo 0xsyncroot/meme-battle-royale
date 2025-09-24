@@ -21,11 +21,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <PrivyProvider
         appId={PRIVY_APP_ID}
         config={{
-          loginMethods: ['wallet', 'email'],
+          loginMethods: ['wallet'],
           appearance: {
             theme: 'light',
             accentColor: '#6366F1',
             logo: '/logo.png',
+            showWalletLoginFirst: true,
+            walletChainType: 'ethereum-only',
+            landingHeader: 'Connect to Meme Battle Royale',
+            loginMessage: 'Join the battle with your wallet',
           },
           defaultChain: sepolia,
           supportedChains: [sepolia],

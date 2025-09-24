@@ -190,7 +190,7 @@ const SubmissionForm = memo<SubmissionFormProps>(({ onSuccess }) => {
   if (fhevmError) {
     return (
       <Card className="border border-red-200 bg-gradient-to-r from-red-50 to-red-100">
-        <CardContent className="p-4">
+        <CardContent className="p-4 mt-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
             <div className="space-y-1">
@@ -206,7 +206,7 @@ const SubmissionForm = memo<SubmissionFormProps>(({ onSuccess }) => {
   if (contractError) {
     return (
       <Card className="border border-red-200 bg-gradient-to-r from-red-50 to-red-100">
-        <CardContent className="p-4">
+        <CardContent className="p-4 mt-4">
           <div className="flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
             <div className="space-y-1">
