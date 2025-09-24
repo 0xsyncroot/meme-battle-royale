@@ -1,0 +1,42 @@
+{
+  "name": "encrypted-meme-battle-contracts",
+  "version": "3.0.0",
+  "description": "Enterprise Modular FHEVM Smart Contracts by 0xSyncroot - Privacy-Preserving Meme Battle System",
+  "type": "commonjs",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:battle": "hardhat test test/EncryptedMemeBattle.test.js",
+    "deploy": "hardhat run scripts/deployEncryptedMemeBattle.js --network localhost",
+    "deploy:zama": "hardhat run scripts/deployEncryptedMemeBattle.js --network zamaDevnet",
+    "deploy:sepolia": "hardhat run scripts/deployEncryptedMemeBattle.js --network sepolia",
+    "check-balance": "hardhat run scripts/check-balance.js",
+    "check-balance:zama": "hardhat run scripts/check-balance.js --network zamaDevnet",
+    "check-balance:sepolia": "hardhat run scripts/check-balance.js --network sepolia",
+    "check-state": "hardhat run scripts/checkBattleState.js",
+    "worker": "hardhat run scripts/battleWorker.js",
+    "node": "hardhat node",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@fhevm/core-contracts": "^0.8.0",
+    "@fhevm/solidity": "^0.8.0",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "dotenv": "^16.0.3",
+    "hardhat": "^2.19.0"
+  },
+  "keywords": [
+    "fhevm",
+    "zama",
+    "privacy",
+    "smart-contracts",
+    "hardhat",
+    "meme-battle",
+    "encrypted-voting"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@zama-fhe/oracle-solidity": "^0.1.0"
+  }
+}

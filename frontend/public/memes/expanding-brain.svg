@@ -1,0 +1,41 @@
+<svg width="400" height="600" viewBox="0 0 400 600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="600" fill="#F0F0F0"/>
+  
+  <!-- Panel 1 - Small brain -->
+  <rect x="0" y="0" width="400" height="150" fill="#FFE4B5"/>
+  <line x1="0" y1="150" x2="400" y2="150" stroke="#000" stroke-width="2"/>
+  
+  <!-- Small brain -->
+  <ellipse cx="100" cy="75" rx="30" ry="25" fill="#FFB6C1"/>
+  <text x="250" y="80" font-family="Arial, sans-serif" font-size="14" fill="#000">BASIC IDEA</text>
+  
+  <!-- Panel 2 - Medium brain -->
+  <rect x="0" y="150" width="400" height="150" fill="#E6E6FA"/>
+  <line x1="0" y1="300" x2="400" y2="300" stroke="#000" stroke-width="2"/>
+  
+  <!-- Medium brain -->
+  <ellipse cx="100" cy="225" rx="35" ry="30" fill="#DDA0DD"/>
+  <text x="250" y="230" font-family="Arial, sans-serif" font-size="14" fill="#000">BETTER IDEA</text>
+  
+  <!-- Panel 3 - Large brain -->
+  <rect x="0" y="300" width="400" height="150" fill="#F0E68C"/>
+  <line x1="0" y1="450" x2="400" y2="450" stroke="#000" stroke-width="2"/>
+  
+  <!-- Large brain -->
+  <ellipse cx="100" cy="375" rx="40" ry="35" fill="#9370DB"/>
+  <text x="250" y="380" font-family="Arial, sans-serif" font-size="14" fill="#000">GREAT IDEA</text>
+  
+  <!-- Panel 4 - Galaxy brain -->
+  <rect x="0" y="450" width="400" height="150" fill="#000080"/>
+  
+  <!-- Galaxy brain with stars -->
+  <ellipse cx="100" cy="525" rx="45" ry="40" fill="#4B0082"/>
+  <!-- Stars -->
+  <circle cx="85" cy="510" r="2" fill="#FFF"/>
+  <circle cx="115" cy="515" r="1.5" fill="#FFF"/>
+  <circle cx="95" cy="535" r="1" fill="#FFF"/>
+  <circle cx="110" cy="540" r="2" fill="#FFF"/>
+  <circle cx="90" cy="520" r="1" fill="#FFF"/>
+  
+  <text x="250" y="530" font-family="Arial, sans-serif" font-size="14" fill="#FFF">GALAXY BRAIN</text>
+</svg>

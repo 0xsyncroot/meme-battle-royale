@@ -1,0 +1,31 @@
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="300" fill="#F0F0F0"/>
+  
+  <!-- Top panel -->
+  <rect x="0" y="0" width="400" height="150" fill="#FFE4B5"/>
+  <line x1="0" y1="150" x2="400" y2="150" stroke="#000" stroke-width="2"/>
+  
+  <!-- Bottom panel -->
+  <rect x="0" y="150" width="400" height="150" fill="#E6E6FA"/>
+  
+  <!-- Drake figure (top) - rejecting -->
+  <circle cx="100" cy="75" r="35" fill="#8B4513"/>
+  <rect x="75" y="105" width="50" height="40" fill="#FFD700"/>
+  <!-- Hand gesture - rejecting -->
+  <rect x="140" y="70" width="25" height="8" fill="#8B4513"/>
+  <circle cx="165" cy="74" r="6" fill="#8B4513"/>
+  
+  <!-- Drake figure (bottom) - approving -->
+  <circle cx="100" cy="225" r="35" fill="#8B4513"/>
+  <rect x="75" y="255" width="50" height="40" fill="#FFD700"/>
+  <!-- Hand gesture - pointing -->
+  <rect x="140" y="220" width="25" height="8" fill="#8B4513"/>
+  <circle cx="165" cy="224" r="6" fill="#8B4513"/>
+  
+  <!-- Text areas -->
+  <rect x="200" y="30" width="180" height="90" fill="#FFF" stroke="#000" stroke-width="1"/>
+  <text x="290" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#000">OPTION 1</text>
+  
+  <rect x="200" y="180" width="180" height="90" fill="#FFF" stroke="#000" stroke-width="1"/>
+  <text x="290" y="230" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#000">OPTION 2</text>
+</svg>

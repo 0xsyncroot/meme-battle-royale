@@ -1,0 +1,40 @@
+{
+  "name": "meme-battle-royale",
+  "version": "1.0.0",
+  "description": "Privacy-preserving meme battle DApp powered by Zama's FHEVM by 0xSyncroot",
+  "private": true,
+  "scripts": {
+    "setup": "./setup.sh",
+    "install:all": "pnpm install && cd blockchain && pnpm install && cd ../frontend && pnpm install && cd ../worker && pnpm install",
+    "build:all": "cd blockchain && pnpm run compile && cd ../frontend && pnpm run build && cd ../worker && pnpm run build",
+    "deploy:sepolia": "cd blockchain && pnpm run deploy:sepolia",
+    "deploy:localhost": "cd blockchain && pnpm run deploy:localhost",
+    "start:node": "cd blockchain && pnpm run node",
+    "start:frontend": "cd frontend && pnpm run dev",
+    "start:worker": "cd worker && pnpm run dev",
+    "test:contracts": "cd blockchain && pnpm run test",
+    "clean": "cd blockchain && pnpm run clean && cd ../frontend && rm -rf .next && cd ../worker && rm -rf node_modules",
+    "demo": "cd blockchain && pnpm run demo",
+    "worker:install": "cd worker && pnpm install"
+  },
+  "keywords": [
+    "fhevm",
+    "zama",
+    "privacy",
+    "encryption",
+    "dapp",
+    "meme",
+    "contest",
+    "blockchain",
+    "nextjs"
+  ],
+  "author": "0xSyncroot",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  }
+}
