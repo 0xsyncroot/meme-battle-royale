@@ -655,125 +655,24 @@ export function useContract() {
     [state.readOnlyContract, withErrorHandling]
   );
 
-  const requestTemplateResultsDecryption = useCallback(
-    withErrorHandling(async () => {
-      if (!state.contractWithSigner) {
-        throw new Error('Wallet not connected. Please connect your wallet first.');
-      }
-
-      const loadingToastId = notifications.loading('Requesting oracle decryption...');
-      
-      try {
-        const tx = await state.contractWithSigner.requestTemplateResultsDecryption();
-        await tx.wait();
-        
-        notifications.dismiss(loadingToastId);
-        notifications.success('Oracle Decryption Requested', 'Results will be revealed shortly by the oracle network');
-        
-        return tx;
-      } catch (error) {
-        notifications.dismiss(loadingToastId);
-        throw error;
-      }
-    }, 'Request Template Results Decryption', true), // requiresWallet = true
-    [state.contractWithSigner, withErrorHandling]
-  );
 
 
-  const getTemplateResults = useCallback(
-    withErrorHandling(async (): Promise<number[]> => {
-      if (!state.readOnlyContract) return [];
 
-      try {
-        // Try oracle-decrypted results first (immediate if available)
-        const result = await state.readOnlyContract.getTemplateResults();
-        return result.map((count: any) => Number(count));
-      } catch (error) {
-        // Fallback: Check if oracle hasn't completed yet
-        const errorMessage = error instanceof Error ? error.message : '';
-        if (errorMessage.includes('ResultsNotRevealed')) {
-          console.warn('Oracle decryption not completed yet, results not available');
-          return [];
-        }
-        throw error; // Re-throw other errors
-      }
-    }, 'Get Template Results'),
-    [state.readOnlyContract, withErrorHandling]
-  );
 
-  /**
-   * Get extended battle information including oracle status
-   * @dev New function to check oracle completion and get available results
-   */
-  const getExtendedBattleInfo = useCallback(
-    withErrorHandling(async () => {
+
+
+  // Winner information function
+  const getBattleWinner = useCallback(
+    withErrorHandling(async (): Promise<{ templateId: number, captionId: number, voteCount: number } | null> => {
       if (!state.readOnlyContract) return null;
 
-      const result = await state.readOnlyContract.getExtendedBattleInfo();
+      const result = await state.readOnlyContract.getBattleWinner();
       return {
-        battleInfo: {
-          active: result.info.active,
-          endsAt: Number(result.info.endsAt),
-          templates: Number(result.info.templates),
-          captions: Number(result.info.captions),
-          totalVotes: Number(result.info.totalVotes),
-          currentBattleNumber: Number(result.info.currentBattleNumber)
-        },
-        hasTemplateResults: result.hasTemplateResults,
-        hasFullResults: result.hasFullResults,
-        winnerTemplateId: Number(result.winnerTemplateId),
-        winnerVotes: Number(result.winnerVotes)
+        templateId: Number(result[0]),
+        captionId: Number(result[1]),
+        voteCount: Number(result[2])
       };
-    }, 'Get Extended Battle Info'),
-    [state.readOnlyContract, withErrorHandling]
-  );
-
-
-  /**
-   * Get winning template (available faster, doesn't require caption decryption)
-   * @dev Use this for immediate winner display after template decryption completes
-   */
-  const getWinningTemplate = useCallback(
-    withErrorHandling(async (): Promise<{ templateId: number; voteCount: number } | null> => {
-      if (!state.readOnlyContract) return null;
-
-      try {
-        const result = await state.readOnlyContract.getWinningTemplate();
-        return {
-          templateId: Number(result.templateId),
-          voteCount: Number(result.voteCount)
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : '';
-        if (errorMessage.includes('ResultsNotRevealed')) {
-          console.warn('Template decryption not completed yet, winner not available');
-          return null;
-        }
-        throw error;
-      }
-    }, 'Get Winning Template'),
-    [state.readOnlyContract, withErrorHandling]
-  );
-
-  const getWinners = useCallback(
-    withErrorHandling(async (): Promise<{ templateId: number, captionId: number } | null> => {
-      if (!state.readOnlyContract) return null;
-
-      try {
-        const result = await state.readOnlyContract.getWinners();
-        return {
-          templateId: Number(result[0]),
-          captionId: Number(result[1])
-        };
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : '';
-        if (errorMessage.includes('ResultsNotRevealed')) {
-          console.warn('Full oracle decryption not completed yet, complete winners not available');
-          return null;
-        }
-        throw error;
-      }
-    }, 'Get Winners'),
+    }, 'Get Battle Winner'),
     [state.readOnlyContract, withErrorHandling]
   );
 
@@ -784,34 +683,15 @@ export function useContract() {
 
       const result = await state.readOnlyContract.getBattleHistory(battleNumber);
       return {
-        revealed: result[0],
-        winnerTemplateId: Number(result[1]),
-        winnerCaptionId: Number(result[2]),
-        winnerVotes: Number(result[3]),
-        templateVoteCounts: result[4].map((count: any) => Number(count)),
-        battleNumber: Number(result[5]),
-        endTimestamp: Number(result[6]),
-        totalParticipants: Number(result[7])
+        revealed: result.revealed,
+        winnerTemplateId: Number(result.winnerTemplateId),
+        winnerCaptionId: Number(result.winnerCaptionId),
+        winnerVotes: Number(result.winnerVotes),
+        battleNumber: Number(result.battleNumber),
+        endTimestamp: Number(result.endTimestamp),
+        totalParticipants: Number(result.totalParticipants)
       };
     }, 'Get Battle History'),
-    [state.readOnlyContract, withErrorHandling]
-  );
-
-  const getCompletedBattlesRange = useCallback(
-    withErrorHandling(async (offset: number, limit: number): Promise<number[]> => {
-      if (!state.readOnlyContract) return [];
-
-      // Since the contract doesn't have getCompletedBattlesRange, we'll generate the range manually
-      // Based on battle numbers: offset to offset + limit - 1
-      const result: number[] = [];
-      const endNumber = Math.min(offset + limit - 1, offset + limit - 1);
-      
-      for (let i = offset; i <= endNumber && result.length < limit; i++) {
-        result.push(i);
-      }
-      
-      return result;
-    }, 'Get Completed Battles Range'),
     [state.readOnlyContract, withErrorHandling]
   );
 
@@ -825,34 +705,27 @@ export function useContract() {
     [state.readOnlyContract, withErrorHandling]
   );
 
-  const getLatestCompletedBattle = useCallback(
-    withErrorHandling(async (): Promise<BattleHistoryItem | null> => {
-      if (!state.readOnlyContract) return null;
+  // Participant tracking functions
+  const getBattleParticipants = useCallback(
+    withErrorHandling(async (battleNumber: number): Promise<number> => {
+      if (!state.readOnlyContract) return 0;
 
-      // Get total completed battles count first
-      const contractInfo = await state.readOnlyContract.getContractInfo();
-      const totalBattles = Number(contractInfo.totalCompletedBattles);
-      
-      if (totalBattles === 0) {
-        return null;
-      }
-
-      // Get the latest battle (highest battle number)
-      const latestBattleResult = await state.readOnlyContract.getBattleHistory(totalBattles);
-      
-      return {
-        revealed: latestBattleResult.revealed,
-        winnerTemplateId: Number(latestBattleResult.winnerTemplateId),
-        winnerCaptionId: Number(latestBattleResult.winnerCaptionId),
-        winnerVotes: Number(latestBattleResult.winnerVotes),
-        templateVoteCounts: latestBattleResult.templateVoteCounts.map((count: any) => Number(count)),
-        battleNumber: totalBattles,
-        endTimestamp: Number(latestBattleResult.endTimestamp),
-        totalParticipants: Number(latestBattleResult.totalParticipants)
-      };
-    }, 'Get Latest Completed Battle'),
+      const result = await state.readOnlyContract.getBattleParticipants(battleNumber);
+      return Number(result);
+    }, 'Get Battle Participants'),
     [state.readOnlyContract, withErrorHandling]
   );
+
+  const getBattleParticipantsBatch = useCallback(
+    withErrorHandling(async (battleNumbers: number[]): Promise<number[]> => {
+      if (!state.readOnlyContract) return [];
+
+      const result = await state.readOnlyContract.getBattleParticipantsBatch(battleNumbers);
+      return result.map((count: any) => Number(count));
+    }, 'Get Battle Participants Batch'),
+    [state.readOnlyContract, withErrorHandling]
+  );
+
 
   /** =================================================================
    * PUBLIC API INTERFACE
@@ -876,18 +749,16 @@ export function useContract() {
     submitVote,
     hasUserVoted,
     
-    // Results and decryption
-    requestTemplateResultsDecryption,
-    getTemplateResults,
-    getWinners,
-    getExtendedBattleInfo,
-    getWinningTemplate,
+    // Results and winner info
+    getBattleWinner,
 
     // Battle history queries
     getBattleHistory,
-    getCompletedBattlesRange,
     getCompletedBattleCount,
-    getLatestCompletedBattle
+    
+    // Participant tracking
+    getBattleParticipants,
+    getBattleParticipantsBatch
   };
 }
 

@@ -39,7 +39,6 @@ export interface BattleHistoryItem {
   winnerTemplateId: number;
   winnerCaptionId: number;
   winnerVotes: number;
-  templateVoteCounts: number[];
   battleNumber: number;
   endTimestamp: number;
   totalParticipants: number;

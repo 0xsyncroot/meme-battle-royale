@@ -195,4 +195,34 @@ library FHEVMHelper {
     function createEncryptedZero() internal returns (euint32) {
         return FHE.asEuint32(0);
     }
+    
+    // ============ FHEVM ORACLE DECRYPTION HELPERS ============
+    
+    /**
+     * @notice Decode minimal winner information from oracle (3 values only)
+     * @dev Ultra-optimized oracle response with only essential winner data.
+     *      Vote count statistics handled separately without decryption.
+     * @param cleartexts Minimal oracle response with winner info
+     * @return winnerTemplateId Winning template index
+     * @return winnerCaptionId Caption from winning template  
+     * @return maxVotes Maximum vote count achieved
+     */
+    function decodeWinnerInfo(
+        bytes memory cleartexts
+    ) internal pure returns (
+        uint8 winnerTemplateId,
+        uint16 winnerCaptionId,
+        uint32 maxVotes
+    ) {
+        assembly {
+            let dataPtr := add(cleartexts, 0x20)
+            
+            // Extract 3 values from oracle response
+            winnerTemplateId := mload(dataPtr)
+            winnerCaptionId := mload(add(dataPtr, 0x20))
+            maxVotes := mload(add(dataPtr, 0x40))
+        }
+        
+        return (winnerTemplateId, winnerCaptionId, maxVotes);
+    }
 }

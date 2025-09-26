@@ -82,13 +82,11 @@ abstract contract BattleStorage {
     mapping(uint8 => euint32) internal encryptedTemplateVotes;
     
     /**
-     * @notice Stores encrypted caption choices grouped by template for random winner selection
-     * @dev Two-level mapping: battleNumber => templateId => array of encrypted caption IDs.
-     *      When users vote, their encrypted caption choice is stored in the array for their template.
-     * @custom:storage-pattern Nested mapping for efficient caption grouping by template choice
-     * @custom:encryption-type euint16 - supports caption indices up to 65,535
+     * @notice Pre-selected random caption for each template (for single oracle callback)
+     * @dev Maps battleNumber => templateId => single random encrypted caption
+     * @custom:optimization Single caption per template reduces oracle complexity
      */
-    mapping(uint256 => mapping(uint8 => euint16[])) internal templateCaptionVotes;
+    mapping(uint256 => mapping(uint8 => euint16)) internal templateRandomCaption;
     
     // ============ USER TRACKING ============
     
@@ -99,6 +97,14 @@ abstract contract BattleStorage {
      * @custom:anti-pattern Avoids expensive mapping deletion/reset operations
      */
     mapping(address => uint256) public lastVotedBattle;
+    
+    /**
+     * @notice Tracks total participants count for each battle
+     * @dev Maps battleNumber to participant count for accurate historical statistics.
+     *      Updated when battle ends, preserves data for oracle callbacks.
+     * @custom:statistics Enables accurate participant tracking across battle transitions
+     */
+    mapping(uint256 => uint256) public battleParticipants;
     
     // ============ DECRYPTION MANAGEMENT ============
     
@@ -154,20 +160,13 @@ abstract contract BattleStorage {
     }
     
     /**
-     * @notice Store encrypted caption choice for specific template
-     * @dev Groups captions by template choice for efficient random selection later.
-     *      Each caption is stored in the array corresponding to its template choice.
-     * 
-     * @param templateId Plain template ID (0-based) to group caption under
-     * @param encryptedCaptionId Encrypted caption ID from user's vote
-     * 
-     * Privacy Features:
-     * - Caption remains encrypted until winner selection
-     * - Grouped by template for efficient winner processing
-     * - ACL permissions set for contract access
+     * @notice Store random caption for template (overwrite previous)
+     * @dev Uses latest vote to set random caption for each template
+     * @param templateId Template index  
+     * @param encryptedCaptionId Encrypted caption ID from user vote
      */
-    function _storeCaptionForTemplate(uint8 templateId, euint16 encryptedCaptionId) internal {
-        templateCaptionVotes[battleNumber][templateId].push(encryptedCaptionId);
+    function _setRandomCaptionForTemplate(uint8 templateId, euint16 encryptedCaptionId) internal {
+        templateRandomCaption[battleNumber][templateId] = encryptedCaptionId;
         FHE.allowThis(encryptedCaptionId);
     }
     

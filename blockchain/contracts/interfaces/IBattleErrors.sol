@@ -87,4 +87,10 @@ interface IBattleErrors {
      * @dev Occurs when battleNum == 0 OR battleNum > completedBattleCount
      */
     error InvalidBattleNumber();
+
+    /**
+     * @notice Thrown when invalid vote count array is provided
+     * @dev Occurs when voteCounts.length != templateCount
+     */
+    error InvalidVoteCountArray(uint32 expectedLength, uint256 actualLength);
 }

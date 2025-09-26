@@ -20,7 +20,7 @@ async function main() {
   // Battle configuration
   const TEMPLATE_COUNT = 5; // 5 meme templates
   const CAPTION_COUNT = 100; // 100 preset captions (from our constants)
-  const BATTLE_DURATION = 5 * 60; // 5 minutes
+  const BATTLE_DURATION = 15 * 60; // 15 minutes
   
   // Battle operator - can be different from deployer for worker automation
   // If no BATTLE_OPERATOR env var set, deployer will be the operator

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import dynamic from 'next/dynamic';
 
@@ -11,6 +11,7 @@ import { LandingPage } from '@/components/layout/LandingPage';
 import { NavigationTabs } from '@/components/layout/NavigationTabs';
 import { ContestStatus } from '@/components/layout/ContestStatus';
 import { LobbyContent } from '@/components/layout/LobbyContent';
+import { TabRouter, useTabRouter } from '@/components/layout/TabRouter';
 
 // Feature components
 
@@ -49,10 +50,12 @@ import { ContestInfo } from '@/types';
 import { ConnectionErrorMask } from '@/components/ui/ConnectionErrorMask';
 import { IntroModal } from '@/components/ui/IntroModal';
 
-export default function HomePage() {
+function HomePageContent() {
   const { ready, authenticated } = usePrivy();
   const [contestInfo, setContestInfo] = useState<ContestInfo | null>(null);
   const [activeTab, setActiveTab] = useState<'lobby' | 'submit' | 'battle' | 'results' | 'history'>('lobby');
+  const [tabInitialized, setTabInitialized] = useState(false);
+  const { updateTabInUrl } = useTabRouter();
   const { 
     getBattleInfo, 
     isLoading, 
@@ -75,10 +78,17 @@ export default function HomePage() {
   // Track if this is the first load to prevent auto-switching after user interaction
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-  // Handle manual tab switching - prevent future auto-switches
+  // Handle manual tab switching - prevent future auto-switches and update URL
   const handleTabSwitch = (tab: 'lobby' | 'submit' | 'battle' | 'results' | 'history') => {
     setActiveTab(tab);
     setIsInitialLoad(false); // Disable auto-switching once user manually switches
+    updateTabInUrl(tab);
+  };
+
+  const handleTabChangeFromUrl = (tab: 'lobby' | 'submit' | 'battle' | 'results' | 'history') => {
+    setActiveTab(tab);
+    setTabInitialized(true);
+    setIsInitialLoad(false);
   };
 
   // Monitor contract errors and show modal when needed
@@ -104,12 +114,19 @@ export default function HomePage() {
             connectionError.clearError();
           }
           
-          // Only auto-switch tabs on initial load, not during polling
-          if (isInitialLoad) {
-            if (!info.active) {
-              setActiveTab('results');
-            } else if (info.totalSubmissions > 0) {
-              setActiveTab('battle');
+          if (isInitialLoad && tabInitialized) {
+            if (activeTab === 'lobby') {
+              let newTab: 'lobby' | 'submit' | 'battle' | 'results' | 'history' = activeTab;
+              if (!info.active) {
+                newTab = 'results';
+              } else if (info.totalSubmissions > 0) {
+                newTab = 'battle';
+              }
+              
+              if (newTab !== activeTab) {
+                setActiveTab(newTab);
+                updateTabInUrl(newTab);
+              }
             }
             setIsInitialLoad(false);
           }
@@ -188,6 +205,7 @@ export default function HomePage() {
 
             {contestInfo && isConnected && (
               <>
+                <TabRouter onTabChange={handleTabChangeFromUrl} initialTab="lobby" />
                 <NavigationTabs
                   activeTab={activeTab}
                   onTabSwitch={handleTabSwitch}
@@ -233,5 +251,27 @@ export default function HomePage() {
         />
       )}
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50">
+        <div className="text-center space-y-6">
+          <div className="space-y-4">
+            <div className="shimmer h-12 w-64 rounded-xl mx-auto"></div>
+            <div className="shimmer h-4 w-48 rounded-lg mx-auto"></div>
+          </div>
+          <div className="flex items-center justify-center gap-2 mt-8">
+            <div className="h-2 w-2 bg-indigo-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="h-2 w-2 bg-purple-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="h-2 w-2 bg-blue-600 rounded-full animate-bounce"></div>
+          </div>
+        </div>
+      </div>
+    }>
+      <HomePageContent />
+    </Suspense>
   );
 }

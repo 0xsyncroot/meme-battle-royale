@@ -1,4 +1,4 @@
-# 🎭 EncryptedMemeBattle v3.0.0 - Final Enterprise Edition
+# EncryptedMemeBattle v3
 
 ```
 ███████╗███╗   ██╗ ██████╗██████╗ ██╗   ██╗██████╗ ████████╗███████╗██████╗     ███╗   ███╗███████╗███╗   ███╗███████╗
@@ -7,205 +7,141 @@
 ██╔══╝  ██║╚██╗██║██║     ██╔══██╗  ╚██╔╝  ██╔═══╝    ██║   ██╔══╝  ██║  ██║    ██║╚██╔╝██║██╔══╝  ██║╚██╔╝██║██╔══╝  
 ███████╗██║ ╚████║╚██████╗██║  ██║   ██║   ██║        ██║   ███████╗██████╔╝    ██║ ╚═╝ ██║███████╗██║ ╚═╝ ██║███████╗
 ╚══════╝╚═╝  ╚═══╝ ╚═════╝╚═╝  ╚═╝   ╚═╝   ╚═╝        ╚═╝   ╚══════╝╚═════╝     ╚═╝     ╚═╝╚══════╝╚═╝     ╚═╝╚══════╝
-
 ██████╗  █████╗ ████████╗████████╗██╗     ███████╗    ███████╗██╗   ██╗███████╗████████╗███████╗███╗   ███╗
 ██╔══██╗██╔══██╗╚══██╔══╝╚══██╔══╝██║     ██╔════╝    ██╔════╝╚██╗ ██╔╝██╔════╝╚══██╔══╝██╔════╝████╗ ████║
 ██████╔╝███████║   ██║      ██║   ██║     █████╗      ███████╗ ╚████╔╝ ███████╗   ██║   █████╗  ██╔████╔██║
 ██╔══██╗██╔══██║   ██║      ██║   ██║     ██╔══╝      ╚════██║  ╚██╔╝  ╚════██║   ██║   ██╔══╝  ██║╚██╔╝██║
 ██████╔╝██║  ██║   ██║      ██║   ███████╗███████╗    ███████║   ██║   ███████║   ██║   ███████╗██║ ╚═╝ ██║
 ╚═════╝ ╚═╝  ╚═╝   ╚═╝      ╚═╝   ╚══════╝╚══════╝    ╚══════╝   ╚═╝   ╚══════╝   ╚═╝   ╚══════╝╚═╝     ╚═╝
-
 🏗️ ENTERPRISE MODULAR ARCHITECTURE | 👨‍💻 CRAFTED BY 0xSyncroot | 🔐 ZAMA FHEVM POWERED
 ```
 
-**Built by 0xSyncroot - Lead Smart Contract Architect**
+Privacy-preserving meme battle smart contract powered by Zama FHEVM. Voters submit encrypted choices; the winner is computed homomorphically on-chain and revealed via a single minimal oracle callback. Battle results are persisted on-chain for simple, reliable reads by the frontend.
 
-A privacy-preserving meme voting battle system powered by Zama's Fully Homomorphic Encryption (FHE) with enterprise-grade modular architecture.
+## What you get
 
-## 🚀 Quick Start
+- Private, encrypted voting (templates and captions)
+- FHE-native winner computation (no intermediate plaintext)
+- Single oracle callback with 3 decrypted values only: winnerTemplateId, winnerCaptionId, winnerVotes
+- Persistent `battleHistory` for simple reads; no redundant view logic
+- Participant tracking per battle number
+- Minimal, focused public API for frontend integration
 
-### Prerequisites
-- Node.js v18+
-- npm or pnpm
-- Hardhat
+## Install and build
 
-### Installation
+Prerequisites: Node.js 18+, npm, Hardhat.
+
 ```bash
 npm install
-```
-
-### Compile Contracts
-```bash
 npm run compile
-```
-
-### Run Tests
-```bash
 npm test
 ```
 
-### Deploy Contract
+Deploy:
+
 ```bash
-# Local deployment
+# Local
 npm run deploy
 
 # Zama Devnet
 npm run deploy:zama
 
-# Ethereum Sepolia
+# Sepolia
 npm run deploy:sepolia
 ```
 
-### Verify Contract (Sepolia)
+Verify (Sepolia):
+
 ```bash
-# Set your deployed contract address
 export CONTRACT_ADDRESS=0xYOUR_DEPLOYED_ADDRESS
-
-# Verify on Etherscan
 npx hardhat run scripts/verifyContract.js --network sepolia
-
-# Or use direct command
-npm run verify 0xYOUR_CONTRACT_ADDRESS 5 100 300 0xBATTLE_OPERATOR_ADDRESS
 ```
 
-## 🏗️ Architecture Overview
+## Public API (Solidity)
 
-### Modular Design
-```
-contracts/
-├── EncryptedMemeBattle.sol          # 🎯 Main contract (481 lines)
-├── interfaces/
-│   ├── IBattleEvents.sol            # 📢 Event definitions
-│   ├── IBattleErrors.sol            # ❌ Custom errors
-│   └── IDecryptionCallbacks.sol     # 🔐 FHEVM callback interfaces
-├── libraries/
-│   ├── BattleStructs.sol            # 📊 Data structures
-│   └── FHEVMHelper.sol              # 🔧 FHEVM utilities
-├── storage/
-│   └── BattleStorage.sol            # 💾 Storage patterns
-└── core/
-    └── BattleCore.sol               # ⚙️ Core battle logic
-```
+Core functions (irreducible set used by the frontend):
 
-### Key Components
+- submitVote(bytes32 encryptedTemplateId, bytes encryptedTemplateProof, bytes32 encryptedCaptionId, bytes encryptedCaptionProof)
+- getBattleInfo() → BattleStructs.BattleInfo
+- getBattleHistory(uint256 battleNumber) → BattleStructs.BattleResults
+- getBattleWinner() → (uint8 winnerTemplateId, uint16 winnerCaptionId, uint32 winnerVotes)
+- getBattleParticipants(uint256 battleNumber) → uint256
+- getBattleParticipantsBatch(uint256[] battleNumbers) → uint256[]
+- setBattleDuration(uint256 newDuration) — owner only
+- getContractInfo() → BattleStructs.ContractInfo
 
-#### 🎯 **EncryptedMemeBattle.sol** - Main Contract
-- Contract initialization and configuration
-- FHEVM oracle callback handling  
-- Public interface implementation
-- Admin functions (owner/operator management)
+## How it works
 
-#### ⚙️ **BattleCore.sol** - Core Logic  
-- Battle lifecycle management (start/end battles)
-- Encrypted voting mechanics
-- Privacy-preserving vote processing
-- History management
+1) Users submit encrypted template and caption choices. Double voting is prevented.
 
-#### 💾 **BattleStorage.sol** - Storage Layer
-- All contract storage variables
-- Storage optimization patterns
-- Lazy initialization helpers
+2) On battle end, the contract computes the winner entirely in FHE (finds max vote count and associated caption). Only three encrypted handles are prepared for decryption.
 
-#### 🔧 **FHEVMHelper.sol** - FHEVM Utilities
-- Common FHEVM operation patterns
-- Encrypted type conversions
-- Privacy-preserving validation
-- ACL management helpers
+3) A single oracle callback (`templateDecryptionCallback`) verifies proofs and decodes exactly three plaintext values: winnerTemplateId, winnerCaptionId, winnerVotes. Results are stored in `battleHistory` alongside `totalParticipants` for that battle.
 
-#### 📊 **BattleStructs.sol** - Data Structures
-- Battle result structures
-- Configuration structures
-- View function return types
+4) The frontend reads the immutable history to display the winner template, the caption (mapped via `frontend/src/constants/captions.ts`), and total participants. No per-template plaintext stats are exposed.
 
-#### 🔐 **IDecryptionCallbacks.sol** - FHEVM Interfaces
-- Oracle callback function definitions
-- Type-safe callback signatures
-- Professional interface-based architecture
+## Design highlights
 
-## 🔐 Privacy Features
+- Minimal oracle payload (exactly three values)
+- FHE-native aggregation and selection (`gt`, `select`, `eq`) with proper ACL (`FHE.allowThis`)
+- Immutable `battleHistory`; no duplicated state
+- Participant counts tracked per battle for accurate history
 
-### Fully Homomorphic Encryption
-- **Private Voting**: Template and caption choices remain encrypted during voting
-- **Homomorphic Aggregation**: Vote counts computed on encrypted data
-- **Asynchronous Decryption**: Results revealed via Zama's oracle network
-- **MEV Resistance**: Encrypted computation prevents front-running
+## Network notes
 
-### Security Measures
-- Zama's cryptographic proofs for input validation
-- Access Control Lists (ACL) manage encrypted data permissions
-- Request ID tracking prevents callback replay attacks
-- Battle operator separation for decentralized management
+- Zama Devnet: full FHEVM + oracle callbacks
+- Sepolia: oracle availability may vary
+- Local Hardhat: voting mechanics without oracle decryption
 
-## ⚡ Gas Optimizations
+## Configure
 
-### Storage Efficiency
-- **Lazy Initialization**: Encrypted storage values initialized only on first access
-- **Battle Number Tracking**: Efficient vote tracking without expensive mapping resets
-- **Modular Libraries**: Shared code reduces deployment size
+Environment variables:
 
-### Processing Efficiency  
-- **Batched Decryption**: Multiple values decrypted in single oracle request
-- **Pseudo-random Selection**: Block-based randomness for caption selection
-- **Conditional Logic**: Privacy-preserving FHE operations (select, and, eq)
+```bash
+# Deployment keys
+PRIVATE_KEY=your_private_key
+BATTLE_OPERATOR=operator_address
 
-## 🌐 Network Compatibility
+# RPC endpoints
+ZAMA_DEVNET_RPC_URL=https://devnet.zama.ai
+SEPOLIA_RPC_URL=your_sepolia_endpoint
 
-### Supported Networks
-- **✅ Zama Mainnet**: Full functionality with reliable oracle callbacks
-- **⚠️ Testnets (Sepolia)**: Core functionality, potentially delayed callbacks
-- **🔧 Local Development**: Basic mechanics without oracle features  
-- **♻️ Fallback Design**: Battle history persisted regardless of oracle availability
-
-### Network Configuration
-```javascript
-// Zama Devnet
-zamaDevnet: {
-  url: "https://devnet.zama.ai", 
-  chainId: 8009
-}
-
-// Ethereum Sepolia (FHEVM-enabled)
-sepolia: {
-  url: process.env.SEPOLIA_RPC_URL,
-  chainId: 11155111
-}
+# Optional: verification
+ETHERSCAN_API_KEY=your_key
+CONTRACT_ADDRESS=deployed_contract_address
 ```
 
 ## 🎮 Usage Guide
 
-### For Users
+### Quick usage
+
 ```solidity
-// Submit encrypted vote
-battle.submitVote(
-  encryptedTemplateId,
-  templateProof, 
-  encryptedCaptionId,
-  captionProof
-);
+// Vote (encrypted)
+battle.submitVote(encryptedTemplateId, templateProof, encryptedCaptionId, captionProof);
 
-// Check voting status
-bool hasVoted = battle.hasUserVoted(userAddress);
+// Live info
+BattleStructs.BattleInfo memory info = battle.getBattleInfo();
 
-// Get battle info
-BattleInfo memory info = battle.getBattleInfo();
+// Winner (from history)
+BattleStructs.BattleResults memory res = battle.getBattleHistory(battleNumber);
+
+// Participants
+uint256 p = battle.getBattleParticipants(battleNumber);
 ```
 
-### For Battle Operators
-```solidity
-// End expired battle (operator only)
-battle.endBattle();
+### Operators
 
-// Check if battle can be ended
+```solidity
+battle.endBattle();
 bool canEnd = block.timestamp >= battle.battleEndsAt();
 ```
 
-### For Contract Owners
-```solidity  
-// Change battle operator
-battle.setBattleOperator(newOperatorAddress);
+### Owners
 
-// Get contract configuration
-ContractInfo memory config = battle.getContractInfo();
+```solidity
+battle.setBattleOperator(newOperatorAddress);
+battle.setBattleDuration(newDurationInSeconds);
+BattleStructs.ContractInfo memory cfg = battle.getContractInfo();
 ```
 
 ## 🧪 Testing
@@ -262,56 +198,22 @@ ETHERSCAN_API_KEY=your_etherscan_api_key
 CONTRACT_ADDRESS=deployed_contract_address
 ```
 
-## 📊 Contract Stats
+## Contract stats
 
 | Metric | Value |
 |--------|-------|
-| **Main Contract** | 481 lines |
-| **Total Architecture** | 8 files, ~1515 lines |
-| **Gas Optimization** | 72% reduction vs monolithic |
-| **Test Coverage** | 24/24 tests passing |
-| **FHEVM Compatibility** | v0.8+ |
+| Architecture | Modular (core, storage, libraries, interfaces) |
+| Oracle payload | 3 values (templateId, captionId, votes) |
+| Gas strategy | FHE-native compute, minimal writes |
+| History | Immutable per-battle results |
+| Participants | Per-battle tracking |
+| Compatibility | FHEVM-ready (Devnet, Sepolia) |
 
-## 🏆 Architecture Benefits
+## Notes
 
-### vs Monolithic Design
-- **🔥 56% smaller** main contract (1086 → 481 lines)
-- **📦 Better organization** - separated concerns across 8 modules
-- **🧪 Easier testing** - individual module testing  
-- **🔧 Better maintainability** - isolated changes
-- **♻️ Code reusability** - shared FHEVM utilities
-- **👥 Team collaboration** - parallel development
-- **🔐 Professional interfaces** - enterprise callback patterns
+- No per-template plaintext statistics are exposed. The only decrypted values are the final winner template, caption, and vote count.
+- Frontend maps `winnerCaptionId` to human-readable text via `frontend/src/constants/captions.ts`.
 
-### Enterprise Features
-- **📚 Professional documentation** - NatSpec standards
-- **🛡️ Security best practices** - access control separation
-- **⚡ Gas optimization** - production-ready efficiency
-- **🌐 Network flexibility** - multi-environment support
-- **🔍 Comprehensive testing** - full coverage test suite
+## License
 
-## 👨‍💻 Author
-
-**0xSyncroot** - Lead Smart Contract Architect
-- Specialized in enterprise-grade modular smart contract architecture
-- Expert in Zama FHEVM and privacy-preserving smart contracts  
-- Advanced gas optimization and security patterns
-
-## 🏗️ Architecture Philosophy
-
-> *"Complex systems should be built from simple, well-defined components that work together seamlessly. Each module should have a single responsibility and clear interfaces."* - 0xSyncroot
-
-This contract demonstrates:
-- **Separation of Concerns** - each module has specific responsibilities
-- **Interface Segregation** - clean boundaries between components
-- **Single Responsibility** - focused, maintainable code modules
-- **Open/Closed Principle** - extensible architecture for future features
-
-## 📜 License
-
-MIT License - Educational/Demonstration purposes  
-© 2024 0xSyncroot & Zama Meme Battle Team. All rights reserved.
-
----
-
-**🎯 Ready for production deployment on Zama-compatible networks!**
+MIT

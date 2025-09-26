@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useContract } from '@/hooks/useContract';
 import { usePrivy } from '@privy-io/react-auth';
 import { MEME_TEMPLATES } from '@/constants';
+import { getCaptionById } from '@/constants/captions';
 import { CaptionSubmission } from '@/types';
 import { Trophy, Eye, EyeOff, Crown, Medal, Award, Shield, Sparkles, Lock } from 'lucide-react';
 import { Shimmer, EmptyState } from '@/components/ui/Shimmer';
@@ -38,9 +39,6 @@ interface BattleSelectOption {
  */
 
 export function Results({ contestInfo, battleNumber }: ResultsProps) {
-  const [submissions, setSubmissions] = useState<CaptionSubmission[]>([]);
-  const [revealedCaptions, setRevealedCaptions] = useState<Record<number, string>>({});
-  const [templateResults, setTemplateResults] = useState<number[]>([]);
   const [winners, setWinners] = useState<{ templateId: number, captionId: number } | null>(null);
   const [templateWinner, setTemplateWinner] = useState<{ templateId: number, voteCount: number } | null>(null);
   const [isLoadingResults, setIsLoadingResults] = useState(false);
@@ -52,11 +50,7 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
   const [totalCompletedBattles, setTotalCompletedBattles] = useState(0);
   
   const { 
-    isLoading, 
-    getTemplateResults, 
-    getWinners,
-    getWinningTemplate, 
-    getExtendedBattleInfo,
+    isLoading,
     getBattleHistory,
     getCompletedBattleCount,
     isConnected 
@@ -123,7 +117,6 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
       // Handle empty state
       if (!targetBattleNumber) {
         if (totalCompletedBattles === 0) {
-          setTemplateResults([]);
           setTemplateWinner(null);
           setWinners(null);
           return;
@@ -136,8 +129,7 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
         const historicalBattle = await getBattleHistory(targetBattleNumber);
         
         if (historicalBattle?.revealed) {
-          // Battle with decrypted results
-          setTemplateResults(historicalBattle.templateVoteCounts);
+          // Battle with decrypted results - show winner
           setTemplateWinner({ 
             templateId: historicalBattle.winnerTemplateId, 
             voteCount: historicalBattle.winnerVotes 
@@ -147,34 +139,23 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
             captionId: historicalBattle.winnerCaptionId 
           });
         } else if (historicalBattle && !historicalBattle.revealed) {
-          const hasParticipants = historicalBattle.totalParticipants > 0;
-          const hasVotes = historicalBattle.templateVoteCounts.some(count => count > 0);
-          
-          if (hasParticipants && !hasVotes) {
-            // Data inconsistency: participants but no votes
-            setTemplateResults(historicalBattle.templateVoteCounts);
-            setTemplateWinner(null);
-            setWinners(null);
-          } else if (!hasParticipants) {
-            // No participation
-            setTemplateResults(historicalBattle.templateVoteCounts);
-            setTemplateWinner(null);
+          // Battle exists but not revealed yet
+          if (historicalBattle.totalParticipants === 0) {
+            // No participants - show "no participation" state (not loading)
+            setTemplateWinner({ templateId: -1, voteCount: 0 }); // Special marker for no participants
             setWinners(null);
           } else {
-            // Oracle decryption pending
-            setTemplateResults([]);
+            // Has participants but oracle hasn't decrypted yet - show loading
             setTemplateWinner(null);
             setWinners(null);
           }
         } else {
           // Battle not found
-          setTemplateResults([]);
           setTemplateWinner(null);
           setWinners(null);
         }
       } catch (error) {
         // Reset state on error
-        setTemplateResults([]);
         setTemplateWinner(null);
         setWinners(null);
       } finally {
@@ -185,39 +166,10 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
     fetchBattleResults();
   }, [isConnected, battleNumber, selectedBattleNumber, totalCompletedBattles, getBattleHistory, hasDataLoaded]);
 
-  /**
-   * Handles caption reveal functionality.
-   * Currently uses mock data for demonstration - will integrate with FHEVM decryption.
-   */
-  const handleRevealCaption = async (submissionIndex: number) => {
-    const mockCaptions = [
-      "When you realize it's Monday again",
-      "Me trying to understand blockchain", 
-      "That feeling when gas fees are low",
-      "Waiting for the next bull run like..."
-    ];
-    
-    setRevealedCaptions(prev => ({
-      ...prev,
-      [submissionIndex]: mockCaptions[submissionIndex % mockCaptions.length]
-    }));
-  };
 
-  // Process decrypted results for display
-  const maxVotes = templateResults.length > 0 ? Math.max(...templateResults) : 0;
-  const winnerIndex = templateResults.findIndex(count => count === maxVotes);
-  const winner = winnerIndex >= 0 ? MEME_TEMPLATES[winnerIndex] : null;
-  
-  // Prioritize template winner data for faster display
-  const displayWinner = templateWinner ? MEME_TEMPLATES[templateWinner.templateId] : winner;
-  const displayMaxVotes = templateWinner ? templateWinner.voteCount : maxVotes;
-
-  const sortedResults = MEME_TEMPLATES
-    .map((template, index) => ({
-      ...template,
-      votes: templateResults[index] || 0
-    }))
-    .sort((a, b) => b.votes - a.votes);
+  // Use winner data from battle history (exclude special marker for no participants)
+  const displayWinner = templateWinner && templateWinner.templateId >= 0 ? MEME_TEMPLATES[templateWinner.templateId] : null;
+  const displayMaxVotes = templateWinner ? templateWinner.voteCount : 0;
 
   // Display shimmer loading for uninitialized or loading states
   if (!hasDataLoaded || !isConnected || isLoadingResults || (isLoading && !contestInfo.active)) {
@@ -404,13 +356,32 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
       )}
 
       {/* No Battles Available */}
-      {totalCompletedBattles === 0 && <EmptyState />}
+      {totalCompletedBattles === 0 && (
+        <div className="border border-slate-200 shadow-sm rounded-lg">
+          <div className="p-10 text-center">
+            <div className="flex flex-col items-center space-y-4">
+              <Trophy className="h-14 w-14 text-slate-300" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-slate-800">No Results Available</h3>
+                <p className="text-sm text-slate-600 max-w-md leading-relaxed">
+                  No battles have been completed yet. Results will appear here after battles end and oracle decryption is complete.
+                </p>
+              </div>
+              <div className="p-3 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+                <p className="text-xs text-purple-700 font-medium">
+                  🏆 Join active battles to see the first results!
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Results Section */}
       {targetBattleNumber && totalCompletedBattles > 0 && (
         <>
         {/* No Results State - Different cases */}
-        {templateResults.length === 0 && (
+        {!templateWinner && (
           <Card className="border border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm">
             <CardContent className="p-8 text-center mt-4">
               {/* Pulsing Oracle Animation */}
@@ -443,7 +414,7 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
         )}
 
         {/* Battle with Zero Votes State */}
-        {templateResults.length > 0 && templateResults.every(count => count === 0) && (
+        {displayMaxVotes === 0 && (
           <Card className="border border-slate-200 shadow-sm">
             <CardContent className="p-8 text-center mt-4">
               <Trophy className="h-12 w-12 mx-auto mb-4 text-slate-300" />
@@ -492,102 +463,6 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
         </Card>
       )}
 
-      {/* Final Leaderboard - Only show if there are actual votes or data */}
-      {templateResults.length > 0 && (
-      <Card className="border border-slate-200 shadow-sm">
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center justify-between text-base font-semibold text-slate-800">
-            <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-yellow-500" />
-              <span>Final Results</span>
-            </div>
-            <div className="flex items-center gap-2">
-              {templateResults.every(count => count === 0) ? (
-                <Badge variant="default" className="flex items-center gap-1 bg-slate-50 text-slate-600 border-slate-200">
-                  <EyeOff className="h-3 w-3" />
-                  <span className="text-xs">No Votes</span>
-                </Badge>
-              ) : (
-                <Badge variant="default" className="flex items-center gap-1 bg-green-50 text-green-700 border-green-200">
-                  <Eye className="h-3 w-3" />
-                  <span className="text-xs">Decrypted</span>
-                </Badge>
-              )}
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="space-y-3">
-            {sortedResults.map((template, index) => {
-              const isWinner = index === 0 && template.votes > 0;
-              const Icon = index === 0 ? Crown : index === 1 ? Medal : Award;
-              const percentage = maxVotes > 0 ? (template.votes / maxVotes) * 100 : 0;
-              
-              return (
-                <div
-                  key={template.id}
-                  className={`p-4 rounded-lg border transition-all ${
-                    isWinner
-                      ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-300 shadow-md'
-                      : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <span className={`text-sm font-bold ${
-                          isWinner ? 'text-yellow-600' : 'text-slate-500'
-                        }`}>
-                          #{index + 1}
-                        </span>
-                        <Icon
-                          className={`h-5 w-5 ${
-                            isWinner
-                              ? 'text-yellow-500'
-                              : index === 1
-                              ? 'text-slate-400'
-                              : 'text-slate-300'
-                          }`}
-                        />
-                      </div>
-                      <div>
-                        <h3 className={`font-semibold text-sm ${
-                          isWinner ? 'text-yellow-800' : 'text-slate-800'
-                        }`}>
-                          {template.name}
-                        </h3>
-                        <p className="text-xs text-slate-600 mt-0.5">{template.description}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="text-right">
-                      <div className={`text-xl font-bold ${
-                        isWinner ? 'text-yellow-700' : 'text-slate-700'
-                      }`}>
-                        {template.votes}
-                      </div>
-                      <div className="text-xs text-slate-500">votes</div>
-                    </div>
-                  </div>
-                  
-                  {/* Progress bar with modern styling */}
-                  <div className="w-full bg-slate-200 rounded-full h-2">
-                    <div
-                      className={`h-full rounded-full transition-all duration-1000 ${
-                        isWinner
-                          ? 'bg-gradient-to-r from-yellow-400 to-orange-400'
-                          : 'bg-gradient-to-r from-slate-400 to-slate-500'
-                      }`}
-                      style={{ width: `${percentage}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
-      )}
 
       {/* Caption Reveals Section */}
       <Card className="border border-slate-200 shadow-sm">
@@ -600,74 +475,58 @@ export function Results({ contestInfo, battleNumber }: ResultsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          {submissions.length === 0 ? (
+          {!winners?.captionId ? (
             <div className="text-center py-8">
               <div className="mb-4">
                 <EyeOff className="h-10 w-10 mx-auto text-slate-300" />
               </div>
-              <h3 className="font-semibold text-slate-800 mb-2">No Captions to Reveal</h3>
+              <h3 className="font-semibold text-slate-800 mb-2">No Caption Available</h3>
               <p className="text-sm text-slate-600">
-                Caption submissions will appear here after the battle concludes.
+                {templateWinner ? 'Caption will be revealed after oracle decryption completes.' : 'Caption will appear here after the battle concludes.'}
               </p>
             </div>
           ) : (
             <div className="space-y-3">
-              {submissions.map((submission, index) => {
-                const template = MEME_TEMPLATES.find(t => t.id === submission.templateId);
-                const canReveal = submission.allowPublicReveal || 
-                  (user?.wallet?.address?.toLowerCase() === submission.submitter.toLowerCase());
-                const isRevealed = revealedCaptions[submission.index] !== undefined;
-
+              {(() => {
+                const winnerCaption = getCaptionById(winners.captionId);
+                const winnerTemplate = displayWinner;
+                
+                if (!winnerCaption || !winnerTemplate) return null;
+                
                 return (
-                  <div key={index} className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-lg border border-yellow-200">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-3">
-                        <Badge variant="default" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                          {template?.name}
+                        <Crown className="h-4 w-4 text-yellow-600" />
+                        <Badge variant="default" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs font-semibold">
+                          {winnerTemplate.name}
                         </Badge>
-                        <span className="text-xs text-slate-600 font-mono">
-                          {submission.submitter.slice(0, 6)}...{submission.submitter.slice(-4)}
-                        </span>
+                        <Badge variant="default" className="bg-green-50 text-green-700 border-green-200 text-xs">
+                          <Trophy className="h-3 w-3 mr-1" />
+                          Winner
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-2">
-                        {submission.allowPublicReveal ? (
-                          <Badge variant="default" className="flex items-center gap-1 bg-green-50 text-green-700 border-green-200 text-xs">
-                            <Eye className="h-3 w-3" />
-                            <span>Public</span>
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="flex items-center gap-1 bg-slate-100 text-slate-600 border-slate-300 text-xs">
-                            <EyeOff className="h-3 w-3" />
-                            <span>Private</span>
-                          </Badge>
-                        )}
+                        <span className="text-xs text-yellow-700 font-medium">
+                          {displayMaxVotes} votes
+                        </span>
                       </div>
                     </div>
 
-                    {isRevealed ? (
-                      <div className="p-3 bg-white rounded-lg border border-slate-200">
-                        <p className="text-sm text-slate-800 font-medium">"{revealedCaptions[submission.index]}"</p>
+                    <div className="p-3 bg-white/80 rounded-lg border border-yellow-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-lg">{winnerCaption.emoji}</span>
+                        <span className="text-xs text-yellow-700 font-medium uppercase tracking-wide">
+                          {winnerCaption.category}
+                        </span>
                       </div>
-                    ) : canReveal ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRevealCaption(submission.index)}
-                        loading={isLoading}
-                        className="text-xs"
-                      >
-                        <Eye className="h-3 w-3 mr-1.5" />
-                        Reveal Caption
-                      </Button>
-                    ) : (
-                      <div className="p-3 bg-slate-100 rounded-lg border border-slate-200 text-center">
-                        <EyeOff className="h-4 w-4 mx-auto mb-1 text-slate-400" />
-                        <span className="text-xs text-slate-500 font-medium">Caption is private</span>
-                      </div>
-                    )}
+                      <p className="text-sm text-slate-800 font-medium">
+                        "{winnerCaption.text}"
+                      </p>
+                    </div>
                   </div>
                 );
-              })}
+              })()}
             </div>
           )}
         </CardContent>

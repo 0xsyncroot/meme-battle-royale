@@ -57,7 +57,7 @@ interface IBattleEvents {
      * @param winnerCaptionId Randomly selected caption from winning template (0-based index)  
      * @param winnerVotes Total votes the winning template received
      */
-    event CombinationResultsRevealed(uint8 winnerTemplateId, uint16 winnerCaptionId, uint32 winnerVotes);
+    event BattleResultsRevealed(uint8 winnerTemplateId, uint16 winnerCaptionId, uint32 winnerVotes);
     
     // ============ ACCESS CONTROL EVENTS ============
     
@@ -67,4 +67,11 @@ interface IBattleEvents {
      * @param newOperator New operator address (indexed)
      */
     event BattleOperatorUpdated(address indexed previousOperator, address indexed newOperator);
+    
+    /**
+     * @notice Emitted when battle duration is updated by owner
+     * @param previousDuration Previous battle duration in seconds
+     * @param newDuration New battle duration in seconds
+     */
+    event BattleDurationUpdated(uint256 previousDuration, uint256 newDuration);
 }

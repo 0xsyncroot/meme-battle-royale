@@ -175,12 +175,17 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
             encryptedTemplateVotes[i] = FHE.add(currentCount, increment);
             FHEVMHelper.allowContractAccess(encryptedTemplateVotes[i]);
             
-            _storeCaptionForTemplate(i, captionId);
+            // Store caption for all templates (privacy preserving)
+            // Only the actually voted template will be used in winner selection
+            _setRandomCaptionForTemplate(i, captionId);
         }
         
         // Update user voting status
         lastVotedBattle[msg.sender] = battleNumber;
         totalVoters++;
+        
+        // Update participant count for current battle
+        battleParticipants[battleNumber] = totalVoters;
         
         emit VoteSubmitted(msg.sender, block.timestamp);
     }
@@ -200,11 +205,10 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
      */
     function _saveBattleToHistory() internal {
         battleHistory[battleNumber] = BattleStructs.BattleResults({
-            revealed: false,                               // Updated when FHEVM oracle responds
-            winnerTemplateId: 0,                          // Updated in templateDecryptionCallback
-            winnerCaptionId: 0,                           // Updated in captionDecryptionCallback
-            winnerVotes: 0,                               // Updated with real vote counts
-            templateVoteCounts: new uint32[](templateCount), // Updated with decrypted counts
+            revealed: false,
+            winnerTemplateId: 0,
+            winnerCaptionId: 0,
+            winnerVotes: 0,
             battleNumber: battleNumber,
             endTimestamp: block.timestamp,
             totalParticipants: totalVoters
@@ -214,27 +218,62 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
     }
     
     /**
-     * @notice Update battle history with complete decrypted results
-     * @dev Called by FHEVM oracle callbacks when decryption completes successfully.
-     *      Updates existing history entry with real encrypted vote results.
+     * @notice Update historical battle record with complete decrypted results
+     * @dev Called exclusively from FHEVM oracle callback after successful decryption.
+     *      This function serves as the single source of truth for finalizing battle results
+     *      in the permanent historical record. The function ensures atomic updates and
+     *      maintains data consistency across all battle result fields.
+     *      
+     * @param targetBattleNumber Battle identifier to update results for  
+     * @param winnerTemplateId Winning template ID (0-based index with highest votes)
+     * @param winnerCaptionId Final selected caption ID for the winning template
+     * @param winnerVotes Total vote count achieved by the winning template
+     * @param totalParticipants Total number of unique voters who participated
      * 
-     * @param targetBattleNumber Battle number to update results for
-     * @param finalCaptionId Final decrypted caption ID (0 if no captions/default)
+     * Requirements:
+     * - Battle must exist in battleHistory (endTimestamp > 0)  
+     * - Only called from authorized oracle callback context
+     * - All parameters must represent validated decrypted data
      * 
      * Effects:
-     * - Updates existing battleHistory entry if it exists
-     * - Sets revealed=true and populates all result fields
-     * - Preserves historical accuracy for cross-battle decryption timing
+     * - Updates existing battleHistory entry with complete results
+     * - Sets revealed=true indicating results are finalized
+     * - Populates all winner and voting statistics fields
+     * - Creates permanent historical record for frontend queries
+     * - Enables getBattleHistory() and related view functions
+     * 
+     * Security Considerations:
+     * - Only updates existing battles (prevents unauthorized history creation)
+     * - Atomic operation ensures partial updates cannot occur
+     * - Preserves historical accuracy for cross-battle decryption scenarios
+     * 
+     * Gas Optimization:
+     * - Single storage update per field minimizes gas costs
+     * - Conditional check prevents unnecessary operations on non-existent battles
      */
-    function _updateBattleHistoryWithResults(uint256 targetBattleNumber, uint16 finalCaptionId) internal {
+    function _updateBattleHistoryWithResults(
+        uint256 targetBattleNumber, 
+        uint8 winnerTemplateId,
+        uint16 winnerCaptionId, 
+        uint32 winnerVotes,
+        uint32 totalParticipants
+    ) internal {
+        // Only update existing battles to prevent unauthorized history manipulation
         if (battleHistory[targetBattleNumber].endTimestamp > 0) {
+            // Mark battle as completed with revealed results
             battleHistory[targetBattleNumber].revealed = true;
-            battleHistory[targetBattleNumber].winnerTemplateId = currentBattleResults.winnerTemplateId;
-            battleHistory[targetBattleNumber].winnerCaptionId = finalCaptionId;
-            battleHistory[targetBattleNumber].winnerVotes = currentBattleResults.winnerVotes;
-            battleHistory[targetBattleNumber].templateVoteCounts = currentBattleResults.templateVoteCounts;
+            
+            // Set winner information from decrypted oracle data
+            battleHistory[targetBattleNumber].winnerTemplateId = winnerTemplateId;
+            battleHistory[targetBattleNumber].winnerCaptionId = winnerCaptionId;
+            battleHistory[targetBattleNumber].winnerVotes = winnerVotes;
+            
+            // Store complete voting statistics for historical analysis
+            battleHistory[targetBattleNumber].totalParticipants = totalParticipants;
         }
     }
+    
+    
     
     // ============ DECRYPTION REQUEST MANAGEMENT ============
     
@@ -249,12 +288,49 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
             return;
         }
         
-        bytes32[] memory handles = new bytes32[](templateCount);
+        // Minimal oracle request - only decrypt essential winner info
+        bytes32[] memory handles = new bytes32[](3);
         
-        for (uint8 i = 0; i < templateCount; i++) {
-            euint32 voteCount = _getOrInitializeTemplateVotes(i);
-            handles[i] = euint32.unwrap(voteCount);
+        // Initialize with template 0 as current winner
+        euint32 maxVotes = _getOrInitializeTemplateVotes(0);
+        euint8 winnerTemplateId = FHE.asEuint8(0);
+        euint16 winnerCaptionId = FHE.asEuint16(0); // Initialize as zero (no caption)
+        // No need to store individual vote counts for oracle
+        
+        // Allow access for initial encrypted values
+        FHE.allowThis(winnerTemplateId);
+        FHE.allowThis(winnerCaptionId);
+        
+        // Find winner and select caption in FHE (no oracle storage needed)
+        for (uint8 i = 1; i < templateCount; i++) {
+            euint32 currentVotes = _getOrInitializeTemplateVotes(i);
+            
+            // Check if current template is new winner
+            ebool isNewWinner = FHE.gt(currentVotes, maxVotes);
+            FHE.allowThis(isNewWinner);
+            
+            // Update winner data if current template wins
+            maxVotes = FHE.select(isNewWinner, currentVotes, maxVotes);
+            FHE.allowThis(maxVotes);
+            
+            winnerTemplateId = FHE.select(isNewWinner, FHE.asEuint8(i), winnerTemplateId);
+            FHE.allowThis(winnerTemplateId);
+            
+            // Only update caption if template has one (was voted for)
+            ebool templateHasCaption = FHE.ne(templateRandomCaption[battleNumber][i], FHE.asEuint16(0));
+            FHE.allowThis(templateHasCaption);
+            
+            ebool shouldUpdateCaption = FHE.and(isNewWinner, templateHasCaption);
+            FHE.allowThis(shouldUpdateCaption);
+            
+            winnerCaptionId = FHE.select(shouldUpdateCaption, templateRandomCaption[battleNumber][i], winnerCaptionId);
+            FHE.allowThis(winnerCaptionId);
         }
+        
+        // Only decrypt essential winner information
+        handles[0] = FHE.toBytes32(winnerTemplateId);
+        handles[1] = FHE.toBytes32(winnerCaptionId);
+        handles[2] = FHE.toBytes32(maxVotes);
         
         uint256 requestId = FHE.requestDecryption(
             handles,
@@ -265,6 +341,6 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
         requestIdToBattleNumber[requestId] = battleNumber;
         decryptionRequests[requestId] = handles;
         
-        emit DecryptionRequested(requestId, "template_votes");
+        emit DecryptionRequested(requestId, "final_results");
     }
 }

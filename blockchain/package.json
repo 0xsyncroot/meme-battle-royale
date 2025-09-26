@@ -15,7 +15,7 @@
     "check-balance:sepolia": "hardhat run scripts/check-balance.js --network sepolia",
     "check-state": "hardhat run scripts/checkBattleState.js",
     "worker": "hardhat run scripts/battleWorker.js",
-    "verify": "hardhat verify --network sepolia",
+    "verify": "hardhat run scripts/verifyContract.js --network sepolia",
     "verify:zama": "echo 'Note: Zama Devnet uses custom block explorer, manual verification required'",
     "node": "hardhat node",
     "clean": "hardhat clean"

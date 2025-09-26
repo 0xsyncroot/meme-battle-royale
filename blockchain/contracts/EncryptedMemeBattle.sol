@@ -196,125 +196,18 @@ contract EncryptedMemeBattle is BattleCore, SepoliaConfig, IDecryptionCallbacks 
         
         uint256 targetBattleNumber = requestIdToBattleNumber[requestId];
         
-        // Decode template vote counts from ABI-encoded cleartexts
-        uint32[] memory voteCounts = abi.decode(cleartexts, (uint32[]));
-        require(voteCounts.length == templateCount, "Invalid vote count array");
-        
-        // Determine winning template
-        uint8 winner = 0;
-        uint32 maxVotes = 0;
-        
-        for (uint8 i = 0; i < templateCount; i++) {
-            if (voteCounts[i] > maxVotes) {
-                maxVotes = voteCounts[i];
-                winner = i;
-            }
-        }
-        
-        // Update current battle results
-        currentBattleResults.templateVoteCounts = voteCounts;
-        currentBattleResults.winnerTemplateId = winner;
-        currentBattleResults.winnerVotes = maxVotes;
-        currentBattleResults.battleNumber = targetBattleNumber;
-        currentBattleResults.totalParticipants = totalVoters;
-        
-        // Update historical battle record
-        if (battleHistory[targetBattleNumber].endTimestamp > 0) {
-            battleHistory[targetBattleNumber].templateVoteCounts = voteCounts;
-            battleHistory[targetBattleNumber].winnerTemplateId = winner;
-            battleHistory[targetBattleNumber].winnerVotes = maxVotes;
-        }
-        
-        // Request caption decryption for winner
-        _selectRandomCaptionFromTemplate(winner, targetBattleNumber);
+        // Decode only essential winner information (3 values)
+        (uint8 winner, uint16 winnerCaptionId, uint32 maxVotes) = 
+            FHEVMHelper.decodeWinnerInfo(cleartexts);
+            
+        // Update battle history with complete results using saved participant count
+        _updateBattleHistoryWithResults(targetBattleNumber, winner, winnerCaptionId, maxVotes, uint32(battleParticipants[targetBattleNumber]));
         
         // Prevent replay attacks
         delete requestIdToBattleNumber[requestId];
         delete decryptionRequests[requestId];
-        
-        emit TemplateResultsRevealed(winner, voteCounts);
-    }
-    
-    /**
-     * @notice FHEVM oracle callback for caption decryption
-     * @param requestId Request identifier for replay protection
-     * @param cleartexts ABI-encoded decrypted caption ID
-     * @param decryptionProof KMS signature for verification
-     */
-    function captionDecryptionCallback(
-        uint256 requestId,
-        bytes memory cleartexts,
-        bytes memory decryptionProof
-    ) external override(IDecryptionCallbacks) {
-        // Verify request validity and prevent replay attacks
-        require(requestIdToBattleNumber[requestId] > 0, "Invalid request ID");
-        FHE.checkSignatures(requestId, cleartexts, decryptionProof);
-        
-        uint256 targetBattleNumber = requestIdToBattleNumber[requestId];
-        
-        // Decode caption ID from ABI-encoded cleartexts
-        uint16 captionId = abi.decode(cleartexts, (uint16));
-        
-        // Finalize battle results
-        currentBattleResults.winnerCaptionId = captionId;
-        currentBattleResults.revealed = true;
-        
-        // Update historical battle record
-        _updateBattleHistoryWithResults(targetBattleNumber, captionId);
-        
-        // Prevent replay attacks
-        delete requestIdToBattleNumber[requestId];
-        delete decryptionRequests[requestId];
-        
-        emit CombinationResultsRevealed(
-            currentBattleResults.winnerTemplateId, 
-            captionId, 
-            currentBattleResults.winnerVotes
-        );
-    }
-    
-    // ============ CAPTION SELECTION LOGIC ============
-    
-    /**
-     * @notice Select random caption from captions that voted for the winning template
-     * @dev Uses pseudo-random selection from the caption pool of the winning template.
-     * 
-     * @param winnerTemplateId The winning template ID (highest vote count)
-     * @param targetBattleNumber Battle number to select caption from
-     */
-    function _selectRandomCaptionFromTemplate(uint8 winnerTemplateId, uint256 targetBattleNumber) private {
-        euint16[] memory winnerCaptions = templateCaptionVotes[targetBattleNumber][winnerTemplateId];
-        
-        // Handle no captions case
-        if (winnerCaptions.length == 0) {
-            currentBattleResults.winnerCaptionId = 0;
-            currentBattleResults.revealed = true;
-            _updateBattleHistoryWithResults(targetBattleNumber, 0);
-            emit CombinationResultsRevealed(winnerTemplateId, 0, currentBattleResults.winnerVotes);
-            return;
-        }
-        
-        // Generate pseudo-random index
-        uint256 randomSeed = uint256(keccak256(abi.encodePacked(
-            block.timestamp,
-            block.prevrandao,
-            targetBattleNumber,
-            winnerTemplateId,
-            winnerCaptions.length
-        )));
-        
-        uint256 randomIndex = randomSeed % winnerCaptions.length;
-        euint16 selectedCaption = winnerCaptions[randomIndex];
-        
-        // Request caption decryption
-        bytes32[] memory handles = new bytes32[](1);
-        handles[0] = euint16.unwrap(selectedCaption);
-        
-        uint256 requestId = FHE.requestDecryption(handles, IDecryptionCallbacks.captionDecryptionCallback.selector);
-        
-        requestIdToBattleNumber[requestId] = targetBattleNumber;
-        decryptionRequests[requestId] = handles;
-        emit DecryptionRequested(requestId, "selected_caption");
+
+        emit BattleResultsRevealed(winner, winnerCaptionId, maxVotes);
     }
     
     // ============ ADMIN FUNCTIONS ============
@@ -330,6 +223,22 @@ contract EncryptedMemeBattle is BattleCore, SepoliaConfig, IDecryptionCallbacks 
         battleOperator = newOperator;
         
         emit BattleOperatorUpdated(previousOperator, newOperator);
+    }
+    
+    /**
+     * @notice Update battle duration for future battles (owner only)
+     * @param newDuration New battle duration in seconds
+     * @dev Only affects battles started after this change. Current active battle duration unchanged.
+     */
+    function setBattleDuration(uint256 newDuration) external onlyOwner {
+        require(newDuration > 0, "Battle duration must be positive");
+        require(newDuration >= 60, "Battle duration must be at least 60 seconds");
+        require(newDuration <= 7 days, "Battle duration cannot exceed 7 days");
+        
+        uint256 previousDuration = battleDuration;
+        battleDuration = newDuration;
+        
+        emit BattleDurationUpdated(previousDuration, newDuration);
     }
     
     // ============ VIEW FUNCTIONS ============
@@ -359,84 +268,21 @@ contract EncryptedMemeBattle is BattleCore, SepoliaConfig, IDecryptionCallbacks 
     }
     
     /**
-     * @notice Get decrypted template vote results for current battle
-     * @dev Returns results immediately after template oracle decryption completes.
-     *      Does not require caption decryption to complete - template results are available first.
-     * @return uint32[] Vote counts per template (available after templateDecryptionCallback)
-     */
-    function getTemplateResults() external view returns (uint32[] memory) {
-        // Check if template results are available (decrypted in templateDecryptionCallback)
-        if (currentBattleResults.templateVoteCounts.length == 0) revert ResultsNotRevealed();
-        return currentBattleResults.templateVoteCounts;
-    }
-    
-    /**
-     * @notice Get winning template ID (available immediately after templateDecryptionCallback)
-     * @dev Returns winner template as soon as template vote decryption completes.
-     *      Does not require caption decryption - provides faster access to core results.
+     * @notice Get complete battle winner information for current battle
+     * @dev Returns winner template, caption, and vote count from battle history.
      * @return templateId Winning template (0-based index)
-     * @return voteCount Total votes received by winning template  
+     * @return captionId Caption from winning template (0 if no caption)
+     * @return voteCount Total votes received by winner
      */
-    function getWinningTemplate() external view returns (uint8 templateId, uint32 voteCount) {
-        // Template winner is available after templateDecryptionCallback
-        if (currentBattleResults.templateVoteCounts.length == 0) revert ResultsNotRevealed();
-        return (currentBattleResults.winnerTemplateId, currentBattleResults.winnerVotes);
-    }
-
-    /**
-     * @notice Get complete winners (template + caption) - requires full oracle completion
-     * @dev Returns both template and caption winners after all oracle callbacks complete.
-     *      Use getWinningTemplate() for faster access to template winner only.
-     * @return templateId Winning template (0-based index) 
-     * @return captionId Randomly selected caption from winning template
-     */
-    function getWinners() external view returns (uint8 templateId, uint16 captionId) {
-        if (!currentBattleResults.revealed) revert ResultsNotRevealed();
-        return (currentBattleResults.winnerTemplateId, currentBattleResults.winnerCaptionId);
+    function getBattleWinner() external view returns (uint8 templateId, uint16 captionId, uint32 voteCount) {
+        if (!battleHistory[battleNumber].revealed) revert ResultsNotRevealed();
+        return (
+            battleHistory[battleNumber].winnerTemplateId, 
+            battleHistory[battleNumber].winnerCaptionId,
+            battleHistory[battleNumber].winnerVotes
+        );
     }
     
-    /**
-     * @notice Get battle info including partial results if oracle hasn't completed
-     * @dev Enhanced version that provides maximum available information without waiting for oracle.
-     *      Combines battle metadata with any available decrypted results.
-     * 
-     * @return info Extended battle information structure
-     * @return hasTemplateResults True if template decryption has completed
-     * @return hasFullResults True if full oracle decryption (template + caption) has completed  
-     * @return winnerTemplateId Winner template ID (valid if hasTemplateResults=true)
-     * @return winnerVotes Winner vote count (valid if hasTemplateResults=true)
-     * 
-     * Usage:
-     * - Frontend can show battle status immediately
-     * - Display template results when available (after templateDecryptionCallback)
-     * - Display full results when available (after captionDecryptionCallback)
-     */
-    function getExtendedBattleInfo() external view returns (
-        BattleStructs.BattleInfo memory info,
-        bool hasTemplateResults,
-        bool hasFullResults,
-        uint8 winnerTemplateId,
-        uint32 winnerVotes
-    ) {
-        info = BattleStructs.BattleInfo({
-            active: battleActive,
-            endsAt: battleEndsAt,
-            templates: templateCount,
-            captions: captionCount,
-            totalVotes: totalVoters,
-            currentBattleNumber: battleNumber
-        });
-        
-        // Template results available after templateDecryptionCallback
-        hasTemplateResults = currentBattleResults.templateVoteCounts.length > 0;
-        
-        // Full results available after captionDecryptionCallback  
-        hasFullResults = currentBattleResults.revealed;
-        
-        // Winner info (available when template results ready)
-        winnerTemplateId = hasTemplateResults ? currentBattleResults.winnerTemplateId : 0;
-        winnerVotes = hasTemplateResults ? currentBattleResults.winnerVotes : 0;
-    }
     
     /**
      * @notice Get complete battle results for specific battle number
@@ -445,6 +291,31 @@ contract EncryptedMemeBattle is BattleCore, SepoliaConfig, IDecryptionCallbacks 
      */
     function getBattleHistory(uint256 _battleNumber) external view returns (BattleStructs.BattleResults memory) {
         return battleHistory[_battleNumber];
+    }
+    
+    /**
+     * @notice Get participant count for specific battle
+     * @param _battleNumber Battle number to query (starts from 1)
+     * @return uint256 Number of participants in that battle
+     */
+    function getBattleParticipants(uint256 _battleNumber) external view returns (uint256) {
+        return battleParticipants[_battleNumber];
+    }
+    
+    /**
+     * @notice Get participant counts for multiple battles in batch
+     * @param _battleNumbers Array of battle numbers to query
+     * @return uint256[] Array of participant counts in same order as input
+     * @dev Optimized for BattleHistory pagination - reduces RPC calls significantly
+     */
+    function getBattleParticipantsBatch(uint256[] calldata _battleNumbers) external view returns (uint256[] memory) {
+        uint256[] memory participants = new uint256[](_battleNumbers.length);
+        
+        for (uint256 i = 0; i < _battleNumbers.length; i++) {
+            participants[i] = battleParticipants[_battleNumbers[i]];
+        }
+        
+        return participants;
     }
     
     /**

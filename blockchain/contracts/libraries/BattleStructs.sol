@@ -22,7 +22,6 @@ library BattleStructs {
         bool revealed;
         
         /// @notice Winning template ID determined by highest vote count (0-based index)
-        /// @dev Template with maximum votes among all templateVoteCounts entries
         uint8 winnerTemplateId;
         
         /// @notice Randomly selected caption from captions that voted for winning template (0-based index)
@@ -30,12 +29,7 @@ library BattleStructs {
         uint16 winnerCaptionId;
         
         /// @notice Total vote count received by the winning template
-        /// @dev Equals templateVoteCounts[winnerTemplateId] for data consistency
         uint32 winnerVotes;
-        
-        /// @notice Decrypted vote counts for all templates in order [template0, template1, ...]
-        /// @dev Array length equals templateCount configured at battle creation
-        uint32[] templateVoteCounts;
         
         /// @notice Battle identifier matching the battleNumber when battle ended
         /// @dev Used to correlate results with specific battle instance

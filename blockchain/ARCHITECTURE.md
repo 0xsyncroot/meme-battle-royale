@@ -79,8 +79,8 @@ contracts/interfaces/
 ### 1. EncryptedMemeBattle.sol (Main Contract)
 **🎯 Primary Functions:**
 - Contract initialization and configuration
-- FHEVM oracle callback handling (`templateDecryptionCallback`, `captionDecryptionCallback`)
-- Public interface for frontend integration
+- FHEVM oracle callback handling (`templateDecryptionCallback` - single callback only)
+- Public interface for frontend integration with minimal API surface
 - Administrative functions (owner/operator management)
 
 **🏗️ Architecture Pattern:**
@@ -110,7 +110,8 @@ contracts/interfaces/
 **⚡ Gas Optimizations:**
 - Lazy initialization patterns for encrypted storage
 - Efficient battle number tracking system
-- Batched decryption request optimization
+- Ultra-minimal oracle requests (3 values only vs templateCount*2)
+- FHE-native winner computation eliminates nested oracle calls
 - Minimal storage writes during active battles
 
 ### 3. BattleStorage.sol (Storage Layer)
@@ -138,6 +139,7 @@ contracts/interfaces/
 - Encrypted type conversions and validations
 - Privacy-preserving comparison and selection logic
 - ACL (Access Control List) management helpers
+- Ultra-optimized oracle response decoding
 
 **🔐 Key Functions:**
 - `validateTemplateChoice()` - Encrypted template validation
@@ -145,6 +147,7 @@ contracts/interfaces/
 - `conditionalIncrement()` - Encrypted vote counting
 - `combineConditions()` - Boolean logic on encrypted data
 - `convertExternalTemplate()` / `convertExternalCaption()` - Type conversions
+- `decodeWinnerInfo()` - Minimal 3-value oracle response decoder
 
 **♻️ Reusability Benefits:**
 - Shared across multiple battle contracts
@@ -176,7 +179,7 @@ contracts/interfaces/
 - `VoteSubmitted` - User vote confirmation
 - `BattleEnded` / `BattleStarted` - Lifecycle events
 - `DecryptionRequested` - Oracle interaction tracking
-- `TemplateResultsRevealed` / `CombinationResultsRevealed` - Result events
+- `BattleResultsRevealed` - Final winner results (single event)
 
 #### IBattleErrors.sol
 **❌ Error Handling:**
@@ -209,7 +212,8 @@ Each module has a single, well-defined responsibility:
 
 ### 4. **FHEVM Integration**
 - **Privacy by Design**: All vote data encrypted until battle completion
-- **Oracle Integration**: Asynchronous decryption via Zama's network
+- **Ultra-Optimized Oracle**: Single callback with minimal 3-value payload
+- **FHE-Native Computation**: Winner selection entirely in encrypted domain
 - **ACL Management**: Proper encrypted data permissions
 - **Type Safety**: Consistent use of `euint8`, `euint16`, `euint32`, `ebool`
 
@@ -269,7 +273,8 @@ npm run clean
 - **Shared Libraries**: Common code reused across contracts
 - **Optimized Storage**: Efficient state management patterns
 - **Lazy Operations**: Storage only written when necessary
-- **Batched Calls**: Multiple operations combined where possible
+- **Minimal Oracle Requests**: 60-80% smaller oracle payload
+- **FHE-Native Winner Computation**: Eliminates nested oracle calls
 
 ## 🔒 Security Architecture
 

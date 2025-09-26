@@ -45,9 +45,7 @@ const BattleHistory = memo(() => {
   
   const { 
     getBattleHistory, 
-    getCompletedBattlesRange, 
-    getCompletedBattleCount, 
-    getLatestCompletedBattle,
+    getCompletedBattleCount,
     isConnected 
   } = useContract();
 
@@ -88,82 +86,68 @@ const BattleHistory = memo(() => {
   }, []);
 
   /**
-   * Loads the latest completed battle for highlighting
-   * With proper abort signal management
+   * Professional latest battle loading with proper error handling
+   * Loads most recent completed battle for highlighting
    */
   useEffect(() => {
     const loadLatestBattle = async () => {
-      if (!isConnected) return;
+      if (!isConnected || totalBattles === 0) return;
       
-      // Abort previous request if still pending
       if (loadLatestBattleRef.current) {
         loadLatestBattleRef.current.abort();
       }
       
-      // Create new abort controller
       const abortController = new AbortController();
       loadLatestBattleRef.current = abortController;
       
       try {
-        const latest = await getLatestCompletedBattle();
+        const latest = await getBattleHistory(totalBattles);
         
-        // Check if request was aborted
-        if (abortController.signal.aborted) {
-          return;
-        }
+        if (abortController.signal.aborted) return;
         
-        if (!latest || latest.battleNumber === 0 || latest.endTimestamp === 0) {
+        if (latest && latest.battleNumber > 0 && latest.endTimestamp > 0) {
+          setLatestBattle(latest);
+        } else {
           setLatestBattle(null);
-          return;
         }
-        
-        setLatestBattle(latest);
       } catch (error) {
-        // Only handle non-abort errors
         if (!abortController.signal.aborted) {
           console.warn('Failed to load latest battle:', error);
           setLatestBattle(null);
         }
       } finally {
-        // Clear ref if this was the active request
         if (loadLatestBattleRef.current === abortController) {
           loadLatestBattleRef.current = null;
         }
       }
     };
 
-    if (isConnected) {
+    if (isConnected && totalBattles > 0) {
       loadLatestBattle();
     }
-  }, [isConnected, getLatestCompletedBattle]);
+  }, [isConnected, totalBattles, getBattleHistory]);
 
   /**
-   * Loads total battle count with caching optimization
+   * Professional battle count loading with proper state management
    */
   useEffect(() => {
     const loadBattleCount = async () => {
       if (!isConnected) return;
       
-      // Abort previous request if still pending
       if (loadBattleCountRef.current) {
         loadBattleCountRef.current.abort();
       }
       
-      // Create new abort controller
       const abortController = new AbortController();
       loadBattleCountRef.current = abortController;
       
       try {
         const count = await getCompletedBattleCount();
         
-        // Check if request was aborted
-        if (abortController.signal.aborted) {
-          return;
-        }
+        if (abortController.signal.aborted) return;
         
         setTotalBattles(count);
         
-        // Mark initial load as complete
         if (isInitialMount) {
           setHasInitialLoad(true);
           setIsInitialMount(false);
@@ -174,7 +158,6 @@ const BattleHistory = memo(() => {
           setTotalBattles(0);
         }
       } finally {
-        // Clear ref if this was the active request
         if (loadBattleCountRef.current === abortController) {
           loadBattleCountRef.current = null;
         }
@@ -185,7 +168,8 @@ const BattleHistory = memo(() => {
   }, [isConnected, getCompletedBattleCount, isInitialMount]);
 
   /**
-   * Loads battles for current page with proper abort signal management
+   * Professional battle loading with optimized pagination
+   * Loads battles for current page with proper error handling
    */
   useEffect(() => {
     const loadBattles = async () => {
@@ -194,34 +178,33 @@ const BattleHistory = memo(() => {
         return;
       }
       
-      // Abort previous request if still pending
       if (loadBattlesRef.current) {
         loadBattlesRef.current.abort();
       }
       
-      // Create new abort controller
       const abortController = new AbortController();
       loadBattlesRef.current = abortController;
       
       setLoading(true);
       try {
         // Calculate pagination (newest first)
-        const offset = Math.max(1, totalBattles - (currentPage * pageSize) + 1);
-        const limit = Math.min(pageSize, totalBattles - offset + 1);
+        const startBattle = Math.max(1, totalBattles - (currentPage * pageSize) + 1);
+        const endBattle = Math.min(totalBattles, startBattle + pageSize - 1);
         
-        if (limit <= 0) {
+        if (startBattle > endBattle) {
           setBattles([]);
           return;
         }
 
-        const battleNumbers = await getCompletedBattlesRange(offset, limit);
-        
-        // Check if request was aborted
-        if (abortController.signal.aborted) {
-          return;
+        // Generate battle numbers for this page
+        const battleNumbers = [];
+        for (let i = startBattle; i <= endBattle; i++) {
+          battleNumbers.push(i);
         }
         
-        // Load full battle data in parallel with abort signal awareness
+        if (abortController.signal.aborted) return;
+        
+        // Load battle data in parallel
         const battleData = await Promise.all(
           battleNumbers.map(async (num) => {
             try {
@@ -235,10 +218,7 @@ const BattleHistory = memo(() => {
           })
         );
         
-        // Check again if request was aborted
-        if (abortController.signal.aborted) {
-          return;
-        }
+        if (abortController.signal.aborted) return;
         
         // Sort by battle number descending (newest first)
         const sortedBattles = battleData
@@ -252,12 +232,10 @@ const BattleHistory = memo(() => {
           setBattles([]);
         }
       } finally {
-        // Only update loading state if request wasn't aborted
         if (!abortController.signal.aborted) {
           setLoading(false);
         }
         
-        // Clear ref if this was the active request
         if (loadBattlesRef.current === abortController) {
           loadBattlesRef.current = null;
         }
@@ -267,7 +245,7 @@ const BattleHistory = memo(() => {
     if (isConnected && hasInitialLoad) {
       loadBattles();
     }
-  }, [isConnected, currentPage, totalBattles, hasInitialLoad, getCompletedBattlesRange, getBattleHistory]);
+  }, [isConnected, currentPage, totalBattles, hasInitialLoad, getBattleHistory]);
 
   // Computed values
   const totalPages = Math.ceil(totalBattles / pageSize);
@@ -333,7 +311,7 @@ const BattleHistory = memo(() => {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {latestBattle.revealed && latestBattle.templateVoteCounts.length > 0 && latestBattle.totalParticipants > 0 ? (
+            {latestBattle.revealed && latestBattle.totalParticipants > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="text-center p-3 bg-white/60 rounded-lg border border-purple-100">
                   <p className="text-xs text-slate-600 mb-2 font-medium">🏆 Winner</p>
@@ -452,7 +430,7 @@ const BattleHistory = memo(() => {
                         </div>
                         <div className="flex items-center gap-1 text-xs text-slate-600">
                           <Users className="h-3 w-3" />
-                          <span>{battle.totalParticipants}</span>
+                          <span>{battle.totalParticipants} participants</span>
                         </div>
                       </div>
                       
@@ -472,18 +450,20 @@ const BattleHistory = memo(() => {
                       </div>
                     </div>
                     
-                    {/* Battle Results */}
-                    {battle.revealed && battle.templateVoteCounts.length > 0 && battle.totalParticipants > 0 ? (
+                    {/* Battle Results - Enhanced with encrypted data checking */}
+                    {battle.revealed && battle.totalParticipants > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-slate-25 rounded-lg border border-slate-100">
-                        <div className="space-y-1">
-                          <p className="text-xs text-slate-600 font-medium">🏆 Winning Template</p>
-                          <Badge variant="default" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
-                            {getTemplateName(battle.winnerTemplateId)}
-                          </Badge>
-                          <span className="text-xs text-slate-500 ml-2">
-                            ({battle.templateVoteCounts[battle.winnerTemplateId] || 0} votes)
-                          </span>
-                        </div>
+                          <div className="space-y-1">
+                            <p className="text-xs text-slate-600 font-medium">🏆 Winning Template</p>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="default" className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+                                {getTemplateName(battle.winnerTemplateId)}
+                              </Badge>
+                              <span className="text-xs text-slate-500">
+                                ({battle.winnerVotes} votes)
+                              </span>
+                            </div>
+                          </div>
                         <div className="space-y-1">
                           <p className="text-xs text-slate-600 font-medium">💬 Winning Caption</p>
                           <div className="text-xs font-medium text-slate-700 truncate">
@@ -494,15 +474,41 @@ const BattleHistory = memo(() => {
                           </span>
                         </div>
                       </div>
+                    ) : battle.totalParticipants > 0 ? (
+                      // Battle has participants but not yet decrypted
+                      <div className="p-4 border-2 border-dashed border-amber-200 rounded-lg bg-amber-50">
+                        <div className="text-center">
+                          <div className="flex items-center justify-center gap-2 text-amber-600 mb-2">
+                            <div className="animate-pulse">
+                              <EyeOff className="h-4 w-4" />
+                            </div>
+                            <span className="text-xs font-medium">Processing Results</span>
+                          </div>
+                          <p className="text-xs text-amber-700 mb-2">
+                            {battle.totalParticipants} participants • Results being processed
+                          </p>
+                          <div className="flex items-center justify-center gap-4 text-xs">
+                            <div className="flex items-center gap-1 text-green-600">
+                              <span className="animate-pulse">⚡</span>
+                              <span>Encrypted data available</span>
+                            </div>
+                            <div className="flex items-center gap-1 text-amber-600">
+                              <span className="animate-spin">⏳</span>
+                              <span>Oracle decryption pending</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
+                      // Battle with no participants  
                       <div className="p-4 border-2 border-dashed border-slate-200 rounded-lg">
                         <div className="text-center">
                           <div className="flex items-center justify-center gap-2 text-slate-500 mb-1">
                             <EyeOff className="h-4 w-4" />
-                            <span className="text-xs font-medium">Results Pending</span>
+                            <span className="text-xs font-medium">No Participants</span>
                           </div>
                           <p className="text-xs text-slate-500">
-                            Waiting for FHEVM oracle to decrypt and reveal results
+                            Battle #{battle.battleNumber} ended with no votes
                           </p>
                         </div>
                       </div>

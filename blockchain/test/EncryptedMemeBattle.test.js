@@ -291,11 +291,7 @@ describe("EncryptedMemeBattle", function () {
 
     it("Should revert when accessing results before revelation", async function () {
       await expectRevert(
-        battle.getTemplateResults()
-      );
-      
-      await expectRevert(
-        battle.getWinners()
+        battle.getBattleWinner()
       );
     });
 
