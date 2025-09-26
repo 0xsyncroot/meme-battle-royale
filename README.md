@@ -74,7 +74,6 @@ zama-meme-battle/
 │   ├── package.json                      # Dependencies
 │   └── env.example                       # Configuration template
 ├── setup.sh                   # 🚀 Automated setup script
-├── demo.sh                     # 🎬 Quick demo script
 └── package.json               # Workspace configuration
 ```
 
