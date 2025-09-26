@@ -50,7 +50,7 @@ zama-meme-battle/
 │   │   ├── app/                           # App Router (Next.js 15)
 │   │   ├── components/
 │   │   │   ├── features/                  # Battle components
-│   │   │   │   ├── MemeTemplateGrid.tsx   # Template selection (12 memes)
+│   │   │   │   ├── MemeTemplateGrid.tsx   # Template selection (5 memes)
 │   │   │   │   ├── SubmissionForm.tsx     # Encrypted voting
 │   │   │   │   ├── LiveBattle.tsx         # Real-time progress
 │   │   │   │   ├── Results.tsx            # Oracle decryption results
@@ -299,7 +299,7 @@ npm run start
 - 📊 View current battle status and countdown
 
 ### 2. **Battle Participation**
-- 🎨 Select from **12 meme templates** in interactive grid
+- 🎨 Select from **5 meme templates** in interactive grid
 - 💬 Choose caption from **categorized options** (meme/emoji/reaction)
 - 🔐 **Client-side encryption** using FHEVM before submission
 - 📝 Submit encrypted vote with cryptographic proofs
