@@ -47,11 +47,11 @@ library FHEVMHelper {
     }
     
     /**
-     * @notice Grant contract permission for newly created encrypted values
-     * @dev Standard pattern for encrypted values created within contract operations.
-     *      Must be called after any FHE operation that produces new encrypted values.
+     * @notice Grant contract permission for encrypted values requiring access
+     * @dev Required before operations like FHE.toBytes32() for oracle submission.
+     *      FHEVM requires explicit permission before converting encrypted values to handles.
      * 
-     * @param encryptedValue The encrypted value needing permission setup
+     * @param encryptedValue The encrypted value needing contract access permission
      */
     function allowContractAccess(euint32 encryptedValue) internal {
         FHE.allowThis(encryptedValue);

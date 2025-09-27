@@ -15,7 +15,7 @@ This DApp demonstrates cutting-edge **confidential smart contracts** where:
 
 ### 🚀 Live Deployment
 
-**Contract Address (Sepolia):** [`0x6386B78faDabbe03015964Af7B088365bc82052c`](https://sepolia.etherscan.io/address/0x6386B78faDabbe03015964Af7B088365bc82052c)
+**Contract Address (Sepolia):** [`0x595609F8B645B7DDF3d382dD382BCC19B9e71748`](https://sepolia.etherscan.io/address/0x595609F8B645B7DDF3d382dD382BCC19B9e71748)
 
 - **✅ Verified Source Code** - Full transparency with open-source verification
 - **🔐 FHEVM Compatible** - Privacy-preserving encryption on Ethereum Sepolia
@@ -213,11 +213,11 @@ npm run deploy:sepolia
 🤖 Battle Operator: 0x3840...Ee5
 
 🚀 Deploying EncryptedMemeBattle...
-✅ EncryptedMemeBattle deployed at: 0x6386B78faDabbe03015964Af7B088365bc82052c
+✅ EncryptedMemeBattle deployed at: 0x595609F8B645B7DDF3d382dD382BCC19B9e71748
 🎉 Deployment successful!
 ```
 
-**🔗 Live Contract:** [View on Etherscan](https://sepolia.etherscan.io/address/0x6386B78faDabbe03015964Af7B088365bc82052c)
+**🔗 Live Contract:** [View on Etherscan](https://sepolia.etherscan.io/address/0x595609F8B645B7DDF3d382dD382BCC19B9e71748)
 
 #### Option B: Local Development
 

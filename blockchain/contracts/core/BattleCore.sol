@@ -303,37 +303,31 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
         euint16 winnerCaptionId = FHE.asEuint16(0); // Initialize as zero (no caption)
         // No need to store individual vote counts for oracle
         
-        // Allow access for initial encrypted values
-        FHE.allowThis(winnerTemplateId);
-        FHE.allowThis(winnerCaptionId);
-        
-        // Find winner and select caption in FHE (no oracle storage needed)
+        // Find winner and select caption in FHE (computation for oracle submission)
         for (uint8 i = 1; i < templateCount; i++) {
             euint32 currentVotes = _getOrInitializeTemplateVotes(i);
             
             // Check if current template is new winner
             ebool isNewWinner = FHE.gt(currentVotes, maxVotes);
-            FHE.allowThis(isNewWinner);
             
             // Update winner data if current template wins
             maxVotes = FHE.select(isNewWinner, currentVotes, maxVotes);
-            FHE.allowThis(maxVotes);
-            
             winnerTemplateId = FHE.select(isNewWinner, FHE.asEuint8(i), winnerTemplateId);
-            FHE.allowThis(winnerTemplateId);
             
             // Only update caption if template has one (was voted for)
             ebool templateHasCaption = FHE.ne(templateRandomCaption[battleNumber][i], FHE.asEuint16(0));
-            FHE.allowThis(templateHasCaption);
-            
             ebool shouldUpdateCaption = FHE.and(isNewWinner, templateHasCaption);
-            FHE.allowThis(shouldUpdateCaption);
             
             winnerCaptionId = FHE.select(shouldUpdateCaption, templateRandomCaption[battleNumber][i], winnerCaptionId);
-            FHE.allowThis(winnerCaptionId);
         }
         
-        // Only decrypt essential winner information
+        // CRITICAL: Grant contract access before FHE.toBytes32() conversion for oracle
+        // FHE.toBytes32() requires contract to have permission to access encrypted values
+        FHE.allowThis(winnerTemplateId);
+        FHE.allowThis(winnerCaptionId);
+        FHE.allowThis(maxVotes);
+        
+        // Convert encrypted values to handles for oracle decryption
         handles[0] = FHE.toBytes32(winnerTemplateId);
         handles[1] = FHE.toBytes32(winnerCaptionId);
         handles[2] = FHE.toBytes32(maxVotes);
@@ -379,6 +373,7 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
         // corrupt winner determination logic in _requestTemplateResultsDecryption()
         for (uint8 i = 0; i < templateCount; i++) {
             encryptedTemplateVotes[i] = FHE.asEuint32(0);
+            // Grant contract access to newly created encrypted zeros for future operations
             FHE.allowThis(encryptedTemplateVotes[i]);
         }
     }
