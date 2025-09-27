@@ -321,8 +321,7 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
             winnerCaptionId = FHE.select(shouldUpdateCaption, templateRandomCaption[battleNumber][i], winnerCaptionId);
         }
         
-        // CRITICAL: Grant contract access before FHE.toBytes32() conversion for oracle
-        // FHE.toBytes32() requires contract to have permission to access encrypted values
+        // Grant contract access before FHE.toBytes32() conversion for oracle
         FHE.allowThis(winnerTemplateId);
         FHE.allowThis(winnerCaptionId);
         FHE.allowThis(maxVotes);
