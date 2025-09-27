@@ -51,6 +51,7 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
      * - Sets battleActive = true and calculates new battleEndsAt
      * - Resets totalVoters counter
      * - Clears previousBattleResults for new battle
+     * - Resets all encrypted template vote counts to prevent carry-over
      * - Emits BattleStarted event with battle details
      */
     function _startNewBattle() internal {
@@ -60,6 +61,11 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
         
         // Clear previous battle results - new battle starts clean
         delete currentBattleResults;
+        
+        // Reset all encrypted template votes to prevent vote carry-over between battles
+        // This ensures each battle starts with clean vote counts, preventing comparison errors
+        // where previous battle votes would incorrectly influence winner determination
+        _resetEncryptedTemplateVotes();
         
         emit BattleStarted(block.timestamp, battleNumber, battleEndsAt);
     }
@@ -342,5 +348,38 @@ abstract contract BattleCore is BattleStorage, IBattleEvents, IBattleErrors {
         decryptionRequests[requestId] = handles;
         
         emit DecryptionRequested(requestId, "final_results");
+    }
+    
+    // ============ VOTE RESET MANAGEMENT ============
+    
+    /**
+     * @notice Reset all encrypted template vote counts to encrypted zero
+     * @dev Critical function to prevent vote carry-over between battles.
+     *      Iterates through all possible template slots and resets them to encrypted zero.
+     *      This ensures winner determination logic operates on clean data for each battle.
+     * 
+     * Security Considerations:
+     * - Must be called at start of each new battle to maintain vote integrity
+     * - Prevents malicious vote accumulation across battle boundaries
+     * - Ensures fair competition by starting each battle with zero votes
+     * 
+     * Gas Optimization:
+     * - Only resets up to MAX_TEMPLATES to bound gas costs
+     * - Uses efficient FHE.asEuint32(0) for encrypted zero creation
+     * - Leverages existing ACL setup from previous battle operations
+     * 
+     * FHEVM Integration:
+     * - Creates fresh encrypted zeros using Zama's FHE library
+     * - Maintains proper access control for contract operations
+     * - Compatible with existing lazy initialization pattern
+     */
+    function _resetEncryptedTemplateVotes() internal {
+        // Reset all template vote counts to encrypted zero
+        // This prevents vote carry-over from previous battles that would
+        // corrupt winner determination logic in _requestTemplateResultsDecryption()
+        for (uint8 i = 0; i < templateCount; i++) {
+            encryptedTemplateVotes[i] = FHE.asEuint32(0);
+            FHE.allowThis(encryptedTemplateVotes[i]);
+        }
     }
 }

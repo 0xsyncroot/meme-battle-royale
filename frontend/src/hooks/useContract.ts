@@ -655,12 +655,6 @@ export function useContract() {
     [state.readOnlyContract, withErrorHandling]
   );
 
-
-
-
-
-
-
   // Winner information function
   const getBattleWinner = useCallback(
     withErrorHandling(async (): Promise<{ templateId: number, captionId: number, voteCount: number } | null> => {
