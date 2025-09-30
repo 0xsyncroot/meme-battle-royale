@@ -20,12 +20,12 @@ A privacy-preserving meme battle DApp built on Zama's FHEVM (Fully Homomorphic E
 
 ```mermaid
 flowchart TD
-  U[User / Wallet] --> FE[Frontend (Next.js 15 + Privy + fhevmjs)]
-  FE -->|encrypt & submit| SC[Smart Contract<br/>EncryptedMemeBattle]
-  SC -.-> OR[Zama Oracle]
+  U["User / Wallet"] --> FE["Frontend<br/>(Next.js 15 + Privy + fhevmjs)"]
+  FE -->|encrypt & submit| SC["Smart Contract<br/>EncryptedMemeBattle"]
+  SC -.-> OR["Zama Oracle"]
   OR -.-> SC
-  WRK[Worker Automation] --- SC
-  SC --> H[On-chain History<br/>(battleHistory, participants)]
+  WRK["Worker Automation"] --- SC
+  SC --> H["On-chain History<br/>(battleHistory, participants)"]
 ```
 
 - Frontend: initializes FHEVM, encrypts `templateId`/`captionId`, submits tx with proofs
